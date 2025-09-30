@@ -1,1 +1,1128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skemia - Herramienta Educativa Integrada</title>
+    <!-- Tailwind CSS desde CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Librerías para PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Iconos (Lucide) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Estilos personalizados y utilidades de Tailwind */
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+        .page-content {
+            display: none; /* Ocultar todas las páginas por defecto */
+        }
+        .page-content.active {
+            display: block; /* Mostrar solo la página activa */
+        }
+        
+        /* Estilos para el efecto de volteo 3D de la flashcard */
+        .perspective-1000 { perspective: 1000px; }
+        .transform-style-3d { transform-style: preserve-3d; }
+        .backface-hidden { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+        .rotate-y-180 { transform: rotateY(180deg); }
+
+        /* Estilo para la barra de progreso discreta */
+        .progress-bar-container {
+            @apply w-full bg-gray-200 rounded-full h-2 overflow-hidden;
+        }
+
+        .progress-bar {
+            @apply bg-purple-700 h-2 rounded-full transition-all duration-300 ease-in-out;
+        }
+        /* Estilo para el botón de shuffle activo */
+        .shuffle-btn.active {
+             @apply bg-brand-accent text-white;
+        }
+        .multi-select-dropdown::-webkit-scrollbar {
+            width: 8px;
+        }
+        .multi-select-dropdown::-webkit-scrollbar-thumb {
+            background-color: #ccc;
+            border-radius: 4px;
+        }
+    </style>
+    <script>
+        // Configuración de Tailwind para que coincida con el diseño
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'neutral-bg': '#f9f9f9',
+                        'neutral-card': '#ffffff',
+                        'neutral-border': '#e5e5e5',
+                        'text-primary': '#1a1a1a',
+                        'text-secondary': '#666666',
+                        'brand-accent': '#5F476B',
+                        'feedback-correct': '#22c55e',
+                        'feedback-incorrect': '#ef4444',
+                    },
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-neutral-bg text-text-primary min-h-screen flex flex-col">
+
+    <!-- Header y Navegación -->
+    <header class="bg-neutral-card border-b border-neutral-border sticky top-0 z-10">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <a href="#" class="text-xl font-bold text-brand-accent" data-page="home">Skemia</a>
+            <div class="flex items-center space-x-4 sm:space-x-6 text-text-secondary">
+                <a href="#" class="hover:text-text-primary" data-page="flashcards">Flashcards</a>
+                <a href="#" class="hover:text-text-primary" data-page="quizzes">Quizzes</a>
+                <a href="#" class="hover:text-text-primary" data-page="mindmap">Mapas Mentales</a>
+                <a href="#" class="hover:text-text-primary" data-page="audios">Audios</a>
+                <a href="#" class="hover:text-text-primary" data-page="report">Informes</a>
+                <a href="#" class="hover:text-text-primary" data-page="fuentes">Fuentes</a>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Contenedor principal para las páginas -->
+    <main class="flex-grow container mx-auto px-6 py-8">
+        
+        <!-- Página de Inicio -->
+        <section id="page-home" class="page-content active">
+            <div class="grid lg:grid-cols-2 gap-16 items-center min-h-[60vh]">
+                <div class="text-center lg:text-left">
+                    <h1 class="text-4xl lg:text-5xl font-bold text-gray-800 mb-4 leading-tight">
+                        Transforma tu manera de estudiar.
+                    </h1>
+                    <p class="text-lg text-gray-600 mb-8 max-w-lg mx-auto lg:mx-0">
+                        Skemia te ofrece todas las herramientas que necesitas en un solo lugar. Flashcards, quizzes, mapas mentales y más, diseñados para un aprendizaje sin distracciones.
+                    </p>
+                    <a href="#" id="start-studying-btn" class="inline-block bg-brand-accent text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-opacity-90 transition-transform transform hover:scale-105">
+                        Empezar a estudiar
+                    </a>
+                </div>
+                <div class="hidden lg:block p-4">
+                    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:rgb(230, 230, 250);stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:rgb(200, 200, 240);stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        <path fill="url(#grad1)" d="M48.8,-63.9C63.2,-53.9,74.7,-40.1,79.8,-24.1C84.9,-8.1,83.6,10.2,75.4,24.3C67.2,38.5,52.1,48.6,37,56.5C21.9,64.4,6.9,70.1,-8.5,70.9C-24,71.7,-39.9,67.6,-51.9,58.3C-63.9,49,-72,34.5,-75.8,18.5C-79.6,2.5,-79.1,-15,-71.5,-29.4C-64,-43.8,-49.4,-55.1,-34.5,-63.7C-19.6,-72.3,-4.5,-78.2,10,-79.4C24.5,-80.6,34.5,-73.9,48.8,-63.9Z" transform="translate(100 100)" />
+                        <circle cx="150" cy="50" r="10" fill="#5F476B"/>
+                        <circle cx="60" cy="160" r="5" fill="#5F476B" opacity="0.7"/>
+                        <rect x="40" y="40" width="20" height="20" rx="5" fill="#5F476B" opacity="0.5" transform="rotate(45 50 50)"/>
+                    </svg>
+                </div>
+            </div>
+        </section>
+
+        <!-- Página de Flashcards -->
+        <section id="page-flashcards" class="page-content">
+            <div class="flex flex-col items-center space-y-8">
+                <div class="w-full max-w-2xl text-center">
+                    <h1 class="text-3xl font-bold mb-4">Flashcards</h1>
+                    <div id="flashcard-selection-area" class="w-full max-w-2xl mx-auto text-left">
+                        <label class="block text-sm font-medium text-text-secondary mb-1">Selecciona uno o más temarios:</label>
+                        <div class="relative" id="multi-select-container">
+                            <button id="multi-select-button" class="w-full bg-white p-2 border border-neutral-border rounded-md flex justify-between items-center text-left">
+                                <span id="multi-select-text" class="text-text-secondary">Selecciona temarios...</span>
+                                <i data-lucide="chevron-down" class="w-5 h-5"></i>
+                            </button>
+                            <div id="multi-select-dropdown" class="absolute hidden w-full mt-1 bg-white border rounded-md shadow-lg z-20 max-h-60 overflow-y-auto multi-select-dropdown">
+                                <!-- Opciones se inyectarán aquí -->
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-4 mt-4">
+                            <button id="start-flashcards-btn" class="flex-grow px-6 py-2 bg-brand-accent text-white rounded-md hover:bg-opacity-90 disabled:bg-gray-300">
+                                Empezar Estudio
+                            </button>
+                             <button id="flashcard-shuffle" title="Barajar tarjetas" class="shuffle-btn p-2 bg-neutral-card border rounded-md hover:bg-neutral-bg transition-colors">
+                                <i data-lucide="shuffle" class="w-5 h-5"></i>
+                             </button>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div id="flashcard-study-area" class="hidden w-full max-w-2xl flex flex-col items-center space-y-8">
+                    <div class="w-full flex justify-between items-center">
+                         <button id="change-topics-btn" class="text-sm text-indigo-600 hover:underline">Cambiar Temas</button>
+                    </div>
+                    <div id="flashcard-container" class="w-full max-w-2xl"></div>
+                    <div id="flashcard-difficulty-controls" class="w-full max-w-2xl p-4 bg-neutral-card border rounded-lg text-center">
+                         <p class="text-sm text-text-secondary mb-3">¿Qué tal te sabes esta tarjeta?</p>
+                         <div class="flex justify-center space-x-3">
+                             <button data-difficulty="hard" class="flex-1 px-4 py-2 bg-red-100 text-red-700 border border-red-200 rounded-md hover:bg-red-200 transition-colors">Difícil</button>
+                             <button data-difficulty="medium" class="flex-1 px-4 py-2 bg-yellow-100 text-yellow-700 border border-yellow-200 rounded-md hover:bg-yellow-200 transition-colors">Medio</button>
+                             <button data-difficulty="easy" class="flex-1 px-4 py-2 bg-green-100 text-green-700 border border-green-200 rounded-md hover:bg-green-200 transition-colors">Fácil</button>
+                         </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button id="flashcard-prev" class="px-4 py-2 bg-neutral-card border rounded-md hover:bg-neutral-bg transition-transform transform hover:scale-105">Anterior</button>
+                        <span id="flashcard-counter" class="text-text-secondary"></span>
+                        <button id="flashcard-next" class="px-4 py-2 bg-neutral-card border rounded-md hover:bg-neutral-bg transition-transform transform hover:scale-105">Siguiente</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Página de Quizzes -->
+        <section id="page-quizzes" class="page-content">
+            <div class="flex flex-col items-center space-y-8">
+                <div class="w-full max-w-2xl text-center">
+                    <h1 class="text-3xl font-bold mb-4">Quizzes</h1>
+                    <div id="quiz-selection-area" class="w-full max-w-2xl mx-auto text-left">
+                        <label class="block text-sm font-medium text-text-secondary mb-1">Selecciona uno o más temarios:</label>
+                        <div class="relative" id="quiz-multi-select-container">
+                            <button id="quiz-multi-select-button" class="w-full bg-white p-2 border border-neutral-border rounded-md flex justify-between items-center text-left">
+                                <span id="quiz-multi-select-text" class="text-text-secondary">Selecciona temarios...</span>
+                                <i data-lucide="chevron-down" class="w-5 h-5"></i>
+                            </button>
+                            <div id="quiz-multi-select-dropdown" class="absolute hidden w-full mt-1 bg-white border rounded-md shadow-lg z-20 max-h-60 overflow-y-auto multi-select-dropdown">
+                                <!-- Opciones se inyectarán aquí -->
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-4 mt-4">
+                            <button id="start-quiz-btn" class="flex-grow px-6 py-2 bg-brand-accent text-white rounded-md hover:bg-opacity-90 disabled:bg-gray-300">
+                                Empezar Quiz
+                            </button>
+                             <button id="quiz-shuffle-selection" title="Barajar preguntas" class="shuffle-btn p-2 bg-neutral-card border rounded-md hover:bg-neutral-bg transition-colors">
+                               <i data-lucide="shuffle" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="quiz-study-area" class="hidden w-full max-w-2xl flex-col items-center space-y-8">
+                     <div class="w-full flex justify-between items-center">
+                         <button id="change-quiz-topics-btn" class="text-sm text-indigo-600 hover:underline">Cambiar Temas</button>
+                         <button id="quiz-shuffle-study" title="Reiniciar y barajar" class="shuffle-btn p-2 bg-neutral-card border rounded-md hover:bg-neutral-bg transition-colors">
+                            <i data-lucide="shuffle" class="w-5 h-5"></i>
+                         </button>
+                     </div>
+                     <div id="quiz-container" class="w-full">
+                        <!-- El quiz se renderizará aquí -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Página de Mapas Mentales -->
+        <section id="page-mindmap" class="page-content">
+             <div class="max-w-2xl mx-auto text-center">
+                <h1 class="text-3xl font-bold mb-4">Mapas Mentales</h1>
+                <div class="mb-6">
+                    <label for="mindmap-temario-select" class="block text-sm font-medium text-text-secondary mb-1">Selecciona un temario:</label>
+                    <select id="mindmap-temario-select" class="temario-selector w-full p-2 border border-neutral-border rounded-md bg-white"></select>
+                </div>
+                <div id="mindmap-url-container"></div>
+            </div>
+        </section>
+
+        <!-- Página de Audios -->
+        <section id="page-audios" class="page-content">
+             <div class="max-w-2xl mx-auto text-center">
+                <h1 class="text-3xl font-bold mb-4">Audios Descargables</h1>
+                <div id="audios-download-container">
+                    <!-- Content will be injected by JavaScript -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Página de Informes -->
+        <section id="page-report" class="page-content">
+            <div class="max-w-2xl mx-auto text-center">
+                <h1 class="text-3xl font-bold mb-4">Informes Descargables</h1>
+                <div id="report-download-container">
+                    <!-- Content will be injected by JavaScript -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Página de Fuentes -->
+        <section id="page-fuentes" class="page-content">
+             <div class="max-w-2xl mx-auto text-center">
+                <h1 class="text-3xl font-bold mb-4">Fuentes de Información</h1>
+                <div id="fuentes-download-container">
+                    <!-- Content will be injected by JavaScript -->
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <footer class="text-center py-4 text-text-secondary text-sm border-t border-neutral-border mt-8">
+        © <span id="footer-year"></span> Skemia. Herramienta educativa.
+    </footer>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        const MOCK_DATA = {
+            // ==================================================================
+            // INCRUSTAR URLS GLOBALES AQUÍ
+            // ==================================================================
+            allAudiosUrl: "https://www.dropbox.com/scl/fi/4abs3lf89r8mcfrlpyebq/Procedimiento-Administrativo-Com-n_Audios.zip?rlkey=mcmkbreg4zpzh13xj9f31r1li&st=2po6o40f&dl=1",
+            allFuentesUrl: "https://www.dropbox.com/scl/fi/takl10fg6ns0vlyvjp0v1/Fuentes.zip?rlkey=tluyhywj1bswygjvid34e2jbs&st=8wzc0cud&dl=1",
+            allReportsUrl: "https://www.dropbox.com/scl/fi/8mh0373z9zyw2qu92h4k1/Informe-Gu-a-Estudio.zip?rlkey=vo09dfiih9zn6cmmxg8tbgj6n&st=0z53kbpr&dl=1",
+            // ==================================================================
+
+            temarios: [
+                {
+                    id: 't1',
+                    name: '1. Procedimiento administrativo comun',
+                    flashcards: [
+                        { id: "f1-t1", front: "¿En qué procedimientos se aplica la ampliación máxima de plazos en todo caso?", back: "En procedimientos tramitados por misiones diplomáticas, oficinas consulares, aqueles que exijan trámites en el extranjero o en los que intervengan interesados residentes fuera de España." },
+                        { id: "f2-t1", front: "¿Cuál es la condición temporal indispensable para solicitar o decidir sobre la ampliación de un plazo?", back: "La petición y la decisión deben producirse antes del vencimiento del plazo de que se trate; un plazo ya vencido no puede ser ampliado." },
+                        { id: "f3-t1", front: "¿Los acuerdos sobre ampliación o denegación de plazos son susceptibles de recurso?", back: "No, sin perjuicio del recurso que proceda contra la resolución final que ponga término al procedimiento." },
+                        { id: "f4-t1", front: "¿Qué puede hacer la Administración ante una incidencia técnica que imposibilite el funcionamiento ordinario del sistema?", back: "Determinar una ampliación de los plazos no vencidos hasta que se solucione el problema, publicando la incidencia y la ampliación en la sede electrónica." },
+                        { id: "f5-t1", front: "¿Qué puede acordar la Administración si un ciberincidente afecta gravemente los servicios de tramitación?", back: "Acordar la ampliación general de plazos de los procedimientos administrativos." },
+                        { id: "f6-t1", front: "¿En qué consiste la tramitación de urgencia?", back: "En la reducción a la mitad de los plazos establecidos para el procedimiento ordinario." },
+                        { id: "f7-t1", front: "¿Qué plazos se exceptúan de la reducción a la mitad en la tramitación de urgencia?", back: "Los plazos relativos a la presentación de solicitudes y recursos." },
+                        { id: "f8-t1", front: "¿Qué debe contener el contenido de los actos administrativos?", back: "Debe ajustarse al ordenamiento jurídico y ser determinado y adecuado a los fines de los mismos." },
+                        { id: "f9-t1", front: "¿Qué requisito general deben cumplir los actos administrativos en cuanto a su fundamentación?", back: "Deben ser motivados, con sucinta referencia de hechos y fundamentos de derecho." },
+                        { id: "f10-t1", front: "Menciona una categoría de actos administrativos que obligatoriamente deben ser motivados (letra a).", back: "Los actos que limiten derechos subjetivos o intereses legítimos." },
+                        { id: "f11-t1", front: "Menciona una categoría de actos administrativos que obligatoriamente deben ser motivados (letra e).", back: "Los acuerdos de aplicación de la tramitación de urgencia, de ampliación de plazos y de realización de actuaciones complementarias." },
+                        { id: "f12-t1", front: "¿Cuál es la forma preferente en que se producirán los actos administrativos?", back: "Por escrito a través de medios electrónicos." },
+                        { id: "f13-t1", front: "¿Quién efectúa la constancia escrita de un acto administrativo dictado verbalmente?", back: "El titular del órgano inferior o funcionario que la reciba oralmente, expresando la autoridad de la que procede." },
+                        { id: "f14-t1", front: "¿Qué establece el principio de inderogabilidad singular?", back: "Las resoluciones administrativas de carácter particular no pueden vulnerar lo establecido en una disposición de carácter general." },
+                        { id: "f15-t1", front: "¿Las resoluciones administrativas que vulneran disposiciones reglamentarias son nulas o anulables?", back: "Son nulas (de pleno derecho)." },
+                        { id: "f16-t1", front: "¿Cuál es la regla general sobre la ejecutividad de los actos de las Administraciones Públicas sujetos al Derecho Administrativo?", back: "Serán ejecutivos con arreglo a lo dispuesto en la Ley." },
+                        { id: "f17-t1", front: "¿Desde qué momento producen efectos los actos de las Administraciones Públicas?", back: "Desde la fecha en que se dicten, salvo que en ellos se disponga otra cosa, y se presumen válidos." },
+                        { id: "f18-t1", front: "¿En qué casos la eficacia de un acto administrativo queda demorada?", back: "Cuando así lo exija el contenido del acto o esté supeditada a su notificación, publicación o aprobación superior." },
+                        { id: "f19-t1", front: "Menciona las dos condiciones para otorgar eficacia retroactiva a los actos de forma excepcional.", back: "1) Que se dicten en sustitución de actos anulados, o que produzcan efectos favorables al interesado; y 2) que los supuestos de hecho existieran ya y la retroactividad no lesione derechos de terceros." },
+                        { id: "f20-t1", front: "¿En qué plazo debe ser cursada toda notificación a partir de la fecha del acto?", back: "Dentro del plazo de diez días." },
+                        { id: "f21-t1", front: "¿Qué requisitos mínimos deben constar en toda notificación administrativa?", back: "El texto íntegro de la resolución, indicación de si pone fin a la vía administrativa, recursos procedentes (vía administrativa y judicial), órgano y plazo para interponerlos." },
+                        { id: "f22-t1", front: "¿Cuándo surten efecto las notificaciones defectuosas que contienen el texto íntegro del acto?", back: "A partir de la fecha en que el interesado realice actuaciones que supongan el conocimiento del contenido, o interponga cualquier recurso." },
+                        { id: "f23-t1", front: "¿Cómo se practicarán preferentemente las notificaciones?", back: "Por medios electrónicos." },
+                        { id: "f24-t1", front: "Menciona una situación en la que la Administración puede practicar notificaciones por medios no electrónicos.", back: "Cuando se realicen con ocasión de la comparecencia espontánea del interesado en las oficinas de registro, o cuando para asegurar la eficacia administrativa sea necesaria la entrega directa por un empleado público." },
+                        { id: "f25-t1", front: "¿Las notificaciones que contengan cheques o medios de pago a favor de los obligados pueden realizarse por medios electrónicos?", back: "No, en ningún caso se efectuarán por medios electrónicos." },
+                        { id: "f26-t1", front: "¿La falta de envío del aviso electrónico sobre la puesta a disposición de una notificación afecta su validez?", back: "No, la notificación será considerada plenamente válida aunque falte este aviso." },
+                        { id: "f27-t1", front: "¿Quién puede hacerse cargo de una notificación en papel en el domicilio del interesado si este no se encuentra presente?", back: "Cualquier persona mayor de catorce años que se encuentre en el domicilio y haga constar su identidad." },
+                        { id: "f28-t1", front: "¿En qué momento se entienden practicadas las notificaciones por medios electrónicos?", back: "En el momento en que se produzca el acceso a su contenido." },
+                        { id: "f29-t1", front: "Si una notificación electrónica obligatoria es puesta a disposición, ¿cuándo se considera rechazada?", back: "Cuando hayan transcurrido diez días naturales desde la puesta a disposición sin que se acceda a su contenido." },
+                        { id: "f30-t1", front: "¿Cómo se notificará a los interesados desconocidos o cuando la notificación haya resultado infructuosa?", back: "Por medio de un anuncio publicado en el «Boletín Oficial del Estado»." },
+                        { id: "f31-t1", front: "Menciona una causa por la que un acto es nulo de pleno derecho (Art. 47.1.b).", back: "Los dictados por órgano manifiestamente incompetente por razón de la materia o del territorio." },
+                        { id: "f32-t1", front: "¿Qué vicio causa la nulidad de pleno derecho relacionado con el procedimiento?", back: "Los actos dictados prescindiendo total y absolutamente del procedimiento legalmente establecido." },
+                        { id: "f33-t1", front: "¿Qué tipo de infracción del ordenamiento jurídico determina la anulabilidad de un acto administrativo?", back: "Incurrir en cualquier infracción del ordenamiento jurídico, incluida la desviación de poder." },
+                        { id: "f34-t1", front: "¿Cuándo un defecto de forma en un acto administrativo determina su anulabilidad?", back: "Solo cuando el acto carezca de los requisitos formales indispensables para alcanzar su fin o dé lugar a la indefensión de los interesados." },
+                        { id: "f35-t1", front: "¿Qué sucede si un acto nulo o anulable contiene los elementos constitutivos de otro distinto?", back: "Producirá los efectos del acto distinto (Conversión de actos viciados)." },
+                        { id: "f36-t1", front: "Si el vicio de un acto es la incompetencia no determinante de nulidad, ¿quién puede convalidar el acto?", back: "El órgano competente cuando sea superior jerárquico del que dictó el acto viciado." },
+                        { id: "f37-t1", front: "¿Qué derecho tienen los interesados respecto a los documentos contenidos en los procedimientos?", back: "A acceder y a obtener copia de los documentos contenidos en los procedimientos en los que tengan condición de interesados." },
+                        { id: "f38-t1", front: "¿Cómo pueden iniciarse los procedimientos administrativos?", back: "De oficio o a solicitud del interesado." },
+                        { id: "f39-t1", front: "¿Cuál es la finalidad principal de las medidas provisionales que se adopten en el procedimiento?", back: "Asegurar la eficacia de la resolución que pudiera recaer, conforme a los principios de proporcionalidad, efectividad y menor onerosidad." },
+                        { id: "f40-t1", front: "¿Las medidas provisionales adoptadas antes de la iniciación del procedimiento deben ser confirmadas?", back: "Sí, deben ser confirmadas, modificadas o levantadas en el acuerdo de iniciación, el cual debe efectuarse dentro de los quince días siguientes a su adopción." },
+                        { id: "f41-t1", front: "¿Cuál es el requisito para que un órgano pueda disponer la acumulación de procedimientos?", back: "Que guarden identidad sustancial o íntima conexión, y que sea el mismo órgano quien deba tramitar y resolver." },
+                        { id: "f42-t1", front: "¿Qué se entiende por denuncia en el procedimiento administrativo?", back: "El acto por el que cualquier persona pone en conocimiento de un órgano administrativo la existencia de un hecho que podría justificar la iniciación de oficio de un procedimiento." },
+                        { id: "f43-t1", front: "¿Qué debe establecer la iniciación de los procedimientos de naturaleza sancionadora?", back: "La debida separación entre la fase instructora y la sancionadora, que se encomendará a órganos distintos." },
+                        { id: "f44-t1", front: "¿Cuál es el plazo de prescripción para reclamar el inicio de un procedimiento de responsabilidad patrimonial?", back: "Prescribirá al año de producido el hecho, o de manifestarse su efecto lesivo (o desde la curación o determinación de secuelas en casos de daños físicos/psíquicos)." },
+                        { id: "f45-t1", front: "¿Qué apercibimiento debe incluirse al requerir a un interesado que subsane su solicitud?", back: "La indicación de que si no lo hiciera en un plazo de diez días, se le tendrá por desistido de su petición." },
+                        { id: "f46-t1", front: "¿Qué se entiende por expediente administrativo?", back: "El conjunto ordenado de documentos y actuaciones que sirven de antecedente y fundamento a la resolución administrativa, así como las diligencias encaminadas a ejecutarla." },
+                        { id: "f47-t1", front: "¿Cuál es el plazo general que tienen los interesados para cumplimentar los trámites que se les requieran?", back: "Diez días a partir del siguiente al de la notificación del acto correspondiente, salvo que la norma fije uno distinto." },
+                        { id: "f48-t1", front: "¿Qué efecto tienen las cuestiones incidentales que se suscitan en el procedimiento?", back: "No suspenderán la tramitación del mismo, salvo la recusación." },
+                        { id: "f49-t1", front: "¿Cuál es el plazo máximo y mínimo para el período de prueba ordinario en un procedimiento?", back: "No superior a treinta días ni inferior a diez." },
+                        { id: "f50-t1", front: "¿Qué condición se exige para que el instructor rechace las pruebas propuestas por los interesados?", back: "Que sean manifiestamente improcedentes o innecesarias, mediante resolución motivada." },
+                        { id: "f51-t1", front: "¿Qué formas de terminación del procedimiento administrativo están previstas en la Ley?", back: "La resolución, el desistimiento, la renuncia al derecho, la declaración de caducidad y la imposibilidad material de continuarlo por causas sobrevenidas." },
+                        { id: "f52-t1", front: "Si la sanción es pecuniaria en un procedimiento sancionador, ¿qué reducción se aplica si el presunto responsable paga voluntariamente antes de la resolución?", back: "Se aplicará una reducción de, al menos, el 20% sobre el importe de la sanción propuesta." },
+                        { id: "f53-t1", front: "¿Puede la Administración abstenerse de resolver un procedimiento bajo el pretexto de silencio u oscuridad legal?", back: "No, en ningún caso, aunque sí podrá acordar la inadmisión de solicitudes manifiestamente carentes de fundamento." },
+                        { id: "f54-t1", front: "¿En qué plazo debe ser resuelto un procedimiento por tramitación simplificada?", back: "En treinta días, a contar desde el siguiente a la notificación del acuerdo de tramitación simplificada (salvo que reste menos para la ordinaria)." },
+                        { id: "f55-t1", front: "Menciona el supuesto de excepción a la notificación electrónica relacionado con la comparecencia espontánea del interesado.", back: "Cuando la notificación se realice con ocasión de la comparecencia espontánea del interesado o su representante en las oficinas de asistencia en materia de registro y solicite la comunicación o notificación personal en ese momento." },
+                        { id: "f56-t1", front: "Menciona el supuesto de excepción a la notificación electrónica relacionado con la eficacia de la actuación administrativa.", back: "Cuando para asegurar la eficacia de la actuación administrativa resulte necesario practicar la notificación por entrega directa de un empleado público de la Administración notificante." },
+                        { id: "f57-t1", front: "¿Qué elementos deben permitir constatar las notificaciones para ser válidas, con independencia del medio utilizado (5 elementos esenciales)?", back: "Constancia de su envío o puesta a disposición, de la recepción o acceso por el interesado o su representante, de sus fechas y horas, del contenido íntegro, y de la identidad fidedigna del remitente y destinatario de la misma." },
+                        { id: "f58-t1", front: "¿Qué se debe incorporar al expediente como acreditación de la notificación efectuada?", back: "La acreditación de la notificación efectuada se incorporará al expediente." },
+                        { id: "f59-t1", front: "¿Qué pueden decidir y comunicar los interesados que no están obligados a recibir notificaciones electrónicas respecto a las notificaciones sucesivas?", back: "Podrán decidir y comunicar en cualquier momento a la Administración Pública, mediante los modelos normalizados que se establezcan al efecto, que las notificaciones sucesivas se practiquen o dejen de practicarse por medios electrónicos." },
+                        { id: "f60-t1", front: "¿Para qué colectivos de personas físicas pueden las Administraciones establecer reglamentariamente la obligación de practicar notificaciones electrónicamente?", back: "Para colectivos que por razón de su capacidad económica, técnica, dedicación profesional u otros motivos quede acreditado que tienen acceso y disponibilidad de los medios electrónicos necesarios." },
+                        { id: "f61-t1", front: "¿Para qué servirán el dispositivo electrónico y/o la dirección de correo electrónico que el interesado podrá identificar adicionalmente?", back: "Servirán para el envío de los avisos regulados en este artículo, pero no para la práctica de notificaciones." },
+                        { id: "f62-t1", front: "Menciona el supuesto del Artículo 41.2 a) por el que no se efectuarán notificaciones por medios electrónicos.", back: "Aquellas en las que el acto a notificar vaya acompañado de elementos que no sean susceptibles de conversión en formato electrónico." },
+                        { id: "f63-t1", front: "Menciona el supuesto del Artículo 41.2 b) por el que no se efectuarán notificaciones por medios electrónicos.", back: "Las que contengan medios de pago a favor de los obligados, tales como cheques." },
+                        { id: "f64-t1", front: "¿Por qué medio se practicará la notificación en los procedimientos iniciados a solicitud del interesado?", back: "Por el medio señalado al efecto por aquel." },
+                        { id: "f65-t1", front: "¿Cuándo será electrónica la notificación en los procedimientos iniciados a solicitud del interesado?", back: "En los casos en los que exista obligación de relacionarse de esta forma con la Administración." },
+                        { id: "f66-t1", front: "Si no es posible realizar la notificación en el medio señalado por el interesado, ¿qué condiciones deben cumplir el lugar y el medio utilizado para la notificación?", back: "Se practicará en cualquier lugar adecuado a tal fin, y por cualquier medio que permita tener constancia de la recepción por el interesado o su representante, así como de la fecha, la identidad y el contenido del acto notificado." },
+                        { id: "f67-t1", front: "¿Qué datos pueden recabar las Administraciones Públicas para obtener el domicilio del interesado en procedimientos iniciados de oficio (a los solos efectos de su iniciación)?", back: "Datos sobre el domicilio del interesado recogidos en el Padrón Municipal, mediante consulta a las bases de datos del Instituto Nacional de Estadística, remitidos por las Entidades Locales en aplicación de lo previsto en la Ley 7/1985, de 2 de abril." },
+                        { id: "f68-t1", front: "Si el interesado o su representante rechaza la notificación de una actuación administrativa, ¿qué debe hacerse constar en el expediente y cuál es la consecuencia legal?", back: "Se hará constar en el expediente, especificándose las circunstancias del intento de notificación y el medio, dando por efectuado el trámite y siguiéndose el procedimiento." },
+                        { id: "f69-t1", front: "¿Qué deben enviar las Administraciones Públicas, con independencia del medio de notificación, para informar sobre la puesta a disposición de una notificación electrónica?", back: "Un aviso al dispositivo electrónico y/o a la dirección de correo electrónico del interesado que éste haya comunicado." },
+                        { id: "f70-t1", front: "¿La falta de práctica del aviso electrónico sobre la puesta a disposición de una notificación impide que sea considerada válida?", back: "No, la falta de práctica de este aviso no impedirá que la notificación sea considerada plenamente válida." },
+                        { id: "f71-t1", front: "Si el interesado fuera notificado por distintos cauces, ¿qué fecha se tomará como fecha legal de notificación?", back: "Se tomará como fecha de notificación la de aquélla que se hubiera producido en primer lugar." },
+                        { id: "f72-t1", front: "¿Qué obligación tiene la Administración respecto a todas las notificaciones que se practiquen en papel?", back: "Deberán ser puestas a disposición del interesado en la sede electrónica de la Administración u Organismo actuante para que pueda acceder al contenido de las mismas de forma voluntaria." },
+                        { id: "f73-t1", front: "Si la notificación en papel se intenta en el domicilio y el interesado no está, ¿quién puede hacerse cargo de ella?", back: "Cualquier persona mayor de catorce años que se encuentre en el domicilio y haga constar su identidad." },
+                        { id: "f74-t1", front: "Si nadie se hiciera cargo de la notificación en el domicilio, ¿qué debe hacerse constar en el expediente?", back: "Se hará constar esta circunstancia en el expediente, junto con el día y la hora en que se intentó la notificación." },
+                        { id: "f75-t1", front: "¿Cuántas veces se repetirá el intento de notificación si nadie se hace cargo, y en qué rango temporal?", back: "Se repetirá por una sola vez y en una hora distinta dentro de los tres días siguientes." },
+                        { id: "f76-t1", front: "Si el primer intento de notificación en papel se realizó antes de las quince horas, ¿cuándo deberá realizarse el segundo intento y qué margen debe dejarse?", back: "El segundo intento deberá realizarse después de las quince horas, dejando en todo caso al menos un margen de diferencia de tres horas entre ambos intentos de notificación." },
+                        { id: "f77-t1", front: "Si el segundo intento de notificación en papel también resultara infructuoso, ¿cómo se procederá?", back: "Se procederá en la forma prevista en el artículo 44 (Notificación infructuosa / publicación en BOE)." },
+                        { id: "f78-t1", front: "Si el interesado accede al contenido de la notificación en sede electrónica, ¿qué posibilidad se le ofrecerá?", back: "Se le ofrecerá la posibilidad de que el resto de notificaciones se puedan realizar a través de medios electrónicos." },
+                        { id: "f79-t1", front: "¿Cómo se practicarán las notificaciones por medios electrónicos (3 vías)?", back: "Mediante comparecencia en la sede electrónica de la Administración u Organismo actuante, a través de la dirección electrónica habilitada única o mediante ambos sistemas, según disponga cada Administración u Organismo." },
+                        { id: "f80-t1", front: "A efectos del Artículo 43, ¿qué se entiende por \"comparecencia en la sede electrónica\"?", back: "El acceso por el interesado o su representante debidamente identificado al contenido de la notificación." },
+                        { id: "f81-t1", front: "¿En qué momento se entenderán practicadas las notificaciones por medios electrónicos?", back: "En el momento en que se produzca el acceso a su contenido." },
+                        { id: "f82-t1", front: "¿Cuándo se entenderá rechazada una notificación por medios electrónicos si su carácter es obligatorio o fue expresamente elegida por el interesado?", back: "Quando hayan transcurrido diez días naturales desde la puesta a disposición de la notificación sin que se acceda a su contenido." },
+                        { id: "f83-t1", front: "¿Cómo se entenderá cumplida la obligación de notificar (Art. 40.4) a través de medios electrónicos?", back: "Con la puesta a disposición de la notificación en la sede electrónica de la Administración u Organismo actuante o en la dirección electrónica habilitada única." },
+                        { id: "f84-t1", front: "¿Desde dónde podrán acceder los interesados a las notificaciones electrónicas?", back: "Desde el Punto de Acceso General electrónico de la Administración, que funcionará como un portal de acceso." },
+                        { id: "f85-t1", front: "¿Cómo se realizará la notificación cuando los interesados sean desconocidos, se ignore el lugar o haya sido infructuosa?", back: "Por medio de un anuncio publicado en el «Boletín Oficial del Estado»." },
+                        { id: "f86-t1", front: "¿Qué publicaciones facultativas pueden realizar las Administraciones previamente al anuncio en el BOE (3 lugares)?", back: "En el boletín oficial de la Comunidad Autónoma o de la Provincia, en el tablón de edictos del Ayuntamiento del último domicilio del interesado o del Consulado o Sección Consular de la Embajada correspondiente." },
+                        { id: "f87-t1", front: "Si las Administraciones establecen otras formas de notificación complementarias, ¿excluyen estas la obligación de publicar el anuncio en el BOE?", back: "No, las otras formas de difusión no excluirán la obligación de publicar el correspondiente anuncio en el «Boletín Oficial del Estado»." },
+                        { id: "f88-t1", front: "¿Cuándo serán objeto de publicación los actos administrativos (criterio general)?", back: "Cuando así lo establezcan las normas reguladoras de cada procedimiento o cuando lo aconsejen razones de interés público apreciadas por el órgano competente." },
+                        { id: "f89-t1", front: "¿En qué caso la publicación surte efectos de la notificación cuando el acto tiene destinatario a una pluralidad indeterminada de personas?", back: "Cuando el acto tenga por destinatario a una pluralidad indeterminada de personas." },
+                        { id: "f90-t1", front: "¿En qué caso la publicación es adicional a la notificación individual para garantizar la notificación a todos?", back: "Cuando la Administración estime que la notificación efectuada a un solo interesado es insuficiente para garantizar la notificación a todos." },
+                        { id: "f91-t1", front: "¿En qué caso la publicación es obligatoria cuando se trata de un procedimiento selectivo?", back: "Cuando se trate de actos integrantes de un procedimiento selectivo o de concurrencia competitiva de cualquier tipo." },
+                        { id: "f92-t1", front: "¿Qué debe indicar la convocatoria del procedimiento en los casos de procedimientos selectivos o de concurrencia competitiva?", back: "Deberá indicar el medio donde se efectuarán las sucesivas publicaciones, careciendo de validez las que se lleven a cabo en lugares distintos." },
+                        { id: "f93-t1", front: "¿Qué elementos debe contener la publicación de un acto, según el Artículo 45.2?", back: "Deberá contener los mismos elementos que el artículo 40.2 exige respecto de las notificaciones." },
+                        { id: "f94-t1", front: "¿Qué norma del Artículo 40 es también aplicable a la publicación de actos?", back: "Será también aplicable a la publicación lo establecido en el apartado 3 del mismo artículo." },
+                        { id: "f95-t1", front: "En los supuestos de publicaciones de actos con elementos comunes, ¿qué debe especificarse además de la publicación conjunta de los aspectos coincidentes?", back: "Especificándose solamente los aspectos individuales de cada acto." },
+                        { id: "f96-t1", front: "¿Dónde se realizará la publicación de los actos?", back: "En el diario oficial que corresponda, según cual sea la Administración de la que proceda el acto a notificar." },
+                        { id: "f97-t1", front: "¿Cómo se entenderá cumplida la publicación de actos que, por disposición legal o reglamentaria, deba practicarse en tablón de anuncios o edictos (sin perjuicio del Art. 44)?", back: "Se entenderá cumplida por su publicación en el Diario oficial correspondiente." },
+                        { id: "f98-t1", front: "Si la publicación de un acto lesiona derechos o intereses legítimos, ¿a qué se limitará el órgano competente a publicar en el Diario oficial?", back: "A publicar una somera indicación del contenido del acto y del lugar donde los interesados podrán comparecer, en el plazo que se establezca, para conocimiento del contenido íntegro del mencionado acto y constancia de tal conocimiento." },
+                        { id: "f99-t1", front: "¿Qué pueden establecer las Administraciones, de manera facultativa, como formas de notificación complementarias?", back: "Podrán establecer otras formas de notificación complementarias a través de los restantes medios de difusión que no excluirán la obligación de publicar en el correspondiente Diario oficial." },
+                        { id: "f100-t1", front: "Menciona la causa de nulidad de pleno derecho del Artículo 47.1 a).", back: "Los que lesionen los derechos y libertades susceptibles de amparo constitucional." },
+                        { id: "f101-t1", front: "Menciona la causa de nulidad de pleno derecho del Artículo 47.1 b).", back: "Los dictados por órgano manifiestamente incompetente por razón de la materia o del territorio." },
+                        { id: "f102-t1", front: "Menciona la causa de nulidad de pleno derecho del Artículo 47.1 c).", back: "Los que tengan un contenido imposible." },
+                        { id: "f103-t1", front: "Menciona la causa de nulidad de pleno derecho del Artículo 47.1 d).", back: "Los que sean constitutivos de infracción penal o se dicten como consecuencia de ésta." },
+                        { id: "f104-t1", front: "Menciona la causa de nulidad de pleno derecho del Artículo 47.1 e) (Procedimiento y Colegiados).", back: "Los dictados prescindiendo total y absolutamente del procedimiento legalmente establecido o de las normas que contienen las reglas esenciales para la formación de la voluntad de los órganos colegiados." },
+                        { id: "f105-t1", front: "Menciona la causa de nulidad de pleno derecho del Artículo 47.1 f) (Adquisición de derechos).", back: "Los actos expresos o presuntos contrarios al ordenamiento jurídico por los que se adquieren facultades o derechos cuando se carezca de los requisitos esenciales para su adquisición." },
+                        { id: "f106-t1", front: "¿Qué otra causa residual de nulidad de pleno derecho establece el Artículo 47.1 g)?", back: "Cualquier otro que se establezca expresamente en una disposición con rango de Ley." },
+                        { id: "f107-t1", front: "Menciona los cinco tipos de disposiciones administrativas que serán nulas de pleno derecho según el Artículo 47.2.", back: "Las que vulneren la Constitución, las leyes u otras disposiciones administrativas de rango superior, las que regulen materias reservadas a la Ley, y las que establezcan la retroactividad de disposiciones sancionadoras no favorables o restrictivas de derechos individuales." },
+                        { id: "f108-t1", front: "¿Qué actos de la Administración son anulables?", back: "Los que incurran en cualquier infracción del ordenamiento jurídico, incluso la desviación de poder." },
+                        { id: "f109-t1", front: "¿Cuándo un defecto de forma determinará la anulabilidad de un acto (2 condiciones)?", back: "Sólo cuando el acto carezca de los requisitos formales indispensables para alcanzar su fin o dé lugar a la indefensión de los interesados." },
+                        { id: "f110-t1", front: "¿Cuándo la realización de actuaciones administrativas fuera del tiempo establecido implicará la anulabilidad?", back: "Sólo cuando así lo imponga la naturaleza del término o plazo." },
+                        { id: "f111-t1", front: "¿Qué implica la nulidad o anulabilidad de un acto respecto a los sucesivos en el procedimiento?", back: "No implicará la de los sucesivos en el procedimiento que sean independientes del primero." },
+                        { id: "f112-t1", front: "¿Cuándo la nulidad o anulabilidad en parte de un acto implicará la de las partes del mismo que son independientes de aquélla?", back: "Salvo que la parte viciada sea de tal importancia que sin ella el acto administrativo no hubiera sido dictado." },
+                        { id: "f113-t1", front: "¿En qué consiste la conversión de actos viciados (Art. 50)?", back: "Los actos nulos o anulables que, sin embargo, contengan los elementos constitutivos de otro distinto producirán los efectos de éste." },
+                        { id: "f114-t1", front: "¿Qué debe disponer el órgano que declare la nulidad o anule las actuaciones respecto a los actos y trámites?", back: "Dispondrá siempre la conservación de aquellos actos y trámites cuyo contenido se hubiera mantenido igual de no haberse cometido la infracción." },
+                        { id: "f115-t1", front: "¿Qué puede hacer la Administración respecto a los actos anulables?", back: "Podrá convalidar los actos anulables, subsanando los vicios de que adolezcan." },
+                        { id: "f116-t1", front: "¿Desde qué momento producirá efecto el acto de convalidación?", back: "Producirá efecto desde su fecha, salvo lo dispuesto en el artículo 39.3 para la retroactividad de los actos administrativos." },
+                        { id: "f117-t1", front: "Si el vicio de un acto consiste en incompetencia no determinante de nulidad, ¿quién puede realizar la convalidación?", back: "Podrá realizarse por el órgano competente quando sea superior jerárquico del que dictó el acto viciado." },
+                        { id: "f118-t1", front: "Si el vicio consistiese en la falta de alguna autorización, ¿cómo puede ser convalidado el acto?", back: "Mediante el otorgamiento de la misma por el órgano competente." },
+                        { id: "f119-t1", front: "Menciona la primera parte del derecho de los interesados a conocer el estado de la tramitación (3 elementos).", back: "A conocer, en cualquier momento, el estado de la tramitación de los procedimientos; el sentido del silencio administrativo que corresponda; el órgano competente para su instrucción y resolución; y los actos de trámite dictados." },
+                        { id: "f120-t1", front: "Menciona la segunda parte del derecho de los interesados a la documentación.", back: "También tendrán derecho a acceder y a obtener copia de los documentos contenidos en los citados procedimientos." },
+                        { id: "f121-t1", front: "¿Qué derecho tienen quienes se relacionen con las Administraciones a través de medios electrónicos respecto a la información sobre el estado de tramitación?", back: "Tendrán derecho a consultar la información a la que se refiere el párrafo anterior, en el Punto de Acceso General electrónico de la Administración que funcionará como un portal de acceso." },
+                        { id: "f122-t1", front: "¿Cómo se entenderá cumplida la obligación de la Administración de facilitar copias de documentos a los interesados electrónicos?", back: "Mediante la puesta a disposición de las mismas en el Punto de Acceso General electrónico de la Administración competente o en las sedes electrónicas que correspondan." },
+                        { id: "f123-t1", front: "Menciona el derecho del Artículo 53.1 b) relacionado con el personal responsable.", back: "A identificar a las autoridades y al personal al servicio de las Administraciones Públicas bajo cuya responsabilidad se tramiten los procedimientos." },
+                        { id: "f124-t1", front: "¿Cuál es el derecho del Artículo 53.1 c) respecto a los documentos originales?", back: "A no presentar documentos originales salvo que, de manera excepcional, la normativa reguladora aplicable establezca lo contrario." },
+                        { id: "f125-t1", front: "Si excepcionalmente el interesado debe presentar un documento original, ¿qué derecho tiene?", back: "Tendrán derecho a obtener una copia autenticada de éste." },
+                        { id: "f126-t1", front: "Menciona el derecho del Artículo 53.1 d) relacionado con los datos o documentos ya existentes.", back: "A no presentar datos y documentos no exigidos por las normas aplicables al procedimiento que ya se encuentren en poder de las Administraciones Públicas o que hayan sido elaborados por éstas." },
+                        { id: "f127-t1", front: "¿Hasta qué fase del procedimiento pueden los interesados formular alegaciones y aportar elementos de juicio?", back: "En cualquier fase del procedimiento anterior al trámite de audiencia." },
+                        { id: "f128-t1", front: "¿Qué debe hacer el órgano competente con las alegaciones y documentos aportados antes de la audiencia?", back: "Unos y otros serán tenidos en cuenta por el órgano competente al redactar la correspondiente propuesta de resolución." },
+                        { id: "f129-t1", front: "Menciona el derecho del Artículo 53.1 f) relacionado con la información y orientación.", back: "A obtener información y orientación acerca de los requisitos jurídicos o técnicos que las disposiciones vigentes impongan a los proyectos, actuaciones o solicitudes que se propongan realizar." },
+                        { id: "f130-t1", front: "Menciona el derecho del Artículo 53.1 g).", back: "A actuar asistidos de asesor cuando lo consideren conveniente en defensa de sus intereses." },
+                        { id: "f131-t1", front: "Menciona el derecho del Artículo 53.1 h) respecto a las obligaciones de pago.", back: "A cumplir las obligaciones de pago a través de los medios electrónicos previstos en el artículo 98.2." },
+                        { id: "f132-t1", front: "¿Qué derecho residual se reconoce en el Artículo 53.1 i)?", back: "Cualesquiera otros que les reconozcan la Constitución y las leyes." },
+                        { id: "f133-t1", front: "¿Menciona los elementos de los que tienen derecho a ser notificados los presuntos responsables en procedimientos sancionadores (4 elementos de imputación)?", back: "De los hechos que se le imputen, de las infracciones que tales hechos puedan constituir y de las sanciones que, en su caso, se les pudieran imponer." },
+                        { id: "f134-t1", front: "¿Menciona las tres identificaciones que deben ser notificadas a los presuntos responsables en procedimientos sancionadores?", back: "La identidad del instructor, de la autoridad competente para imponer la sanción y de la norma que atribuya tal competencia." },
+                        { id: "f135-t1", front: "¿Cuál es el derecho fundamental de los presuntos responsables en procedimientos sancionadores (Art. 53.2 b)?", back: "A la presunción de no existencia de responsabilidad administrativa mientras no se demuestre lo contrario." },
+                        { id: "f136-t1", front: "¿Cuáles son las dos clases de iniciación de los procedimientos administrativos?", back: "De oficio o a solicitud del interesado." }
+                    ],
+                    quizzes: [
+                        { id: "q1-t1", type: "multiple-choice", prompt: "¿Cuál es el requisito temporal esencial para que la petición del interesado y la decisión sobre la ampliación de un plazo administrativo sean válidas?", choices: [ { id: "a", text: "Deben producirse dentro de los quince días siguientes al vencimiento del plazo original." }, { id: "b", text: "Deben producirse, en todo caso, antes del vencimiento del plazo de que se trate.", correct: true }, { id: "c", text: "Pueden producirse en cualquier momento, siempre que no se haya dictado la resolución definitiva." }, { id: "d", text: "Solo la decisión sobre la ampliación debe ser antes del vencimiento; la petición puede ser posterior." } ] },
+                        { id: "q2-t1", type: "multiple-choice", prompt: "¿Qué ocurre con los acuerdos sobre ampliación de plazos o su denegación?", choices: [ { id: "a", text: "Son susceptibles de recurso de alzada o reposición, según el órgano que los dicte." }, { id: "b", text: "No son susceptibles de recurso, sin perjuicio del procedente contra la resolución que ponga fin al procedimiento.", correct: true }, { id: "c", text: "Son susceptibles únicamente de recurso potestativo de reposición." }, { id: "d", text: "Solo la denegación de la ampliación es recurrible, pero no la ampliación misma." } ] },
+                        { id: "q3-t1", type: "multiple-choice", prompt: "Si se acuerda la aplicación de la tramitación de urgencia por razones de interés público, ¿cuál es la regla general para los plazos establecidos en el procedimiento ordinario?", choices: [ { id: "a", text: "Se suspenderán por diez días, prorrogables por otros diez si es necesario." }, { id: "b", text: "Se reducirán a la mitad los plazos establecidos, sin excepción alguna." }, { id: "c", text: "Se reducirán a la mitad los plazos, salvo los relativos a la presentación de solicitudes y recursos.", correct: true }, { id: "d", text: "Se reducirán a dos tercios (2/3) todos los plazos del procedimiento." } ] },
+                        { id: "q4-t1", type: "multiple-choice", prompt: "¿Qué puede acordar la Administración cuando un ciberincidente haya afectado gravemente los servicios y sistemas utilizados para la tramitación de los procedimientos?", choices: [ { id: "a", text: "La suspensión temporal obligatoria de todos los procedimientos por diez días hábiles." }, { id: "b", text: "La ampliación general de plazos de los procedimientos administrativos.", correct: true }, { id: "c", text: "La reanudación inmediata de los plazos a través de medios no electrónicos." }, { id: "d", text: "La declaración de nulidad de los trámites afectados, sin posibilidad de prórroga." } ] },
+                        { id: "q5-t1", type: "multiple-choice", prompt: "¿Qué principio establece que las resoluciones administrativas de carácter particular no pueden vulnerar lo dispuesto en una disposición de carácter general, incluso si proceden de un órgano de jerarquía superior al que dictó la disposición general?", choices: [ { id: "a", text: "Ejecutividad inmediata." }, { id: "b", text: "Presunción de validez." }, { id: "c", text: "Inderogabilidad singular.", correct: true }, { id: "d", text: "Conservación de trámites." } ] },
+                        { id: "q6-t1", type: "multiple-choice", prompt: "¿Qué actos deben ser motivados con sucinta referencia de hechos y fundamentos de derecho?", choices: [ { id: "a", text: "Únicamente los actos que impongan sanciones o limiten derechos." }, { id: "b", text: "Los actos que rechacen pruebas propuestas por los interesados.", correct: true }, { id: "c", text: "Todos los actos administrativos que pongan fin al procedimiento." }, { id: "d", text: "Solo los actos dictados a instancia de parte." } ] },
+                        { id: "q7-t1", type: "multiple-choice", prompt: "¿Cuál de los siguientes es un acto que debe ser motivado?", choices: [ { id: "a", text: "Los acuerdos de aplicación de la tramitación de urgencia.", correct: true }, { id: "b", text: "Los actos que resuelvan procedimientos iniciados a propia iniciativa." }, { id: "c", text: "Los actos que declaren la inadmisión de un recurso de forma (no de fondo)." }, { id: "d", text: "Los actos que dispongan el cumplimiento de un plazo sin prórroga." } ] },
+                        { id: "q8-t1", type: "multiple-choice", prompt: "¿Cuál es la forma general establecida para la producción de los actos administrativos?", choices: [ { id: "a", text: "Deberán ser producidos por escrito, preferentemente en papel." }, { id: "b", text: "Se producirán por escrito a través de medios electrónicos, a menos que su naturaleza exija otra forma más adecuada.", correct: true }, { id: "c", text: "Podrán ser verbales, siempre que exista constancia de la autoridad de la que procede." }, { id: "d", text: "Deberán ser producidos por el titular de la competencia y firmados por el órgano inferior." } ] },
+                        { id: "q9-t1", type: "multiple-choice", prompt: "Respecto a la eficacia de los actos, ¿cuál de los siguientes casos permite otorgar eficacia retroactiva a un acto administrativo?", choices: [ { id: "a", text: "Cuando se dicten en sustitución de actos anulados.", correct: true }, { id: "b", text: "Cuando el interesado lo solicite y la Administración lo autorice." }, { id: "c", text: "Cuando su contenido exija la publicación superior." }, { id: "d", text: "Cuando la eficacia no lesione derechos o intereses legítimos, independientemente de si el supuesto de hecho existía en la fecha de retroacción." } ] },
+                        { id: "q10-t1", type: "multiple-choice", prompt: "La eficacia de un acto administrativo quedará demorada cuando:", choices: [ { id: "a", text: "Se interponga un recurso de alzada o reposición contra el mismo." }, { id: "b", text: "Lo exija su contenido.", correct: true }, { id: "c", text: "El órgano competente para la resolución no sea el mismo que para la instrucción." }, { id: "d", text: "La resolución ponga fin a la vía administrativa." } ] },
+                        { id: "q11-t1", type: "multiple-choice", prompt: "Los actos de las Administraciones Públicas sujetos al Derecho Administrativo se presumirán válidos y producirán efectos:", choices: [ { id: "a", text: "Desde la fecha de su publicación en el diario oficial." }, { id: "b", text: "Desde la fecha en que se dicten, salvo que en ellos se disponga otra cosa.", correct: true }, { id: "c", text: "Desde la fecha de su notificación al interesado." }, { id: "d", text: "Al día siguiente de su aprobación superior." } ] },
+                        { id: "q12-t1", type: "fill-in-the-blank", prompt: "Complete la siguiente afirmación: Los actos de las Administraciones Públicas sujetos al Derecho Administrativo serán _______________, salvo las excepciones previstas en la Ley, como la suspensión de la ejecución del acto.", answer: "inmediatamente ejecutivos" },
+                        { id: "q13-t1", type: "multiple-choice", prompt: "¿Cuál es el plazo máximo para que el órgano que dicte las resoluciones y actos administrativos los notifique a los interesados?", choices: [ { id: "a", text: "Quince días a partir de la fecha en que el acto haya sido dictado." }, { id: "b", text: "Diez días a partir de la fecha en que el acto haya sido dictado.", correct: true }, { id: "c", text: "El plazo máximo legal de duración del procedimiento." }, { id: "d", text: "Cinco días hábiles desde la fecha en que se firme el acto." } ] },
+                        { id: "q14-t1", type: "multiple-choice", prompt: "Si una notificación, conteniendo el texto íntegro del acto, omite alguno de los demás requisitos (como los recursos procedentes), ¿cuándo surtirá efecto?", choices: [ { id: "a", text: "Nunca surtirá efecto y deberá ser reemplazada por una notificación corregida." }, { id: "b", text: "Surtirá efecto a partir del momento en que el interesado realice actuaciones que supongan el conocimiento del contenido y alcance de la resolución o interponga cualquier recurso que proceda.", correct: true }, { id: "c", text: "Surtirá efecto al día siguiente de su depósito en la sede electrónica." }, { id: "d", text: "Surtirá efecto si la Administración acredita haber enviado un aviso al correo electrónico del interesado." } ] },
+                        { id: "q15-t1", type: "multiple-choice", prompt: "A los solos efectos de entender cumplida la obligación de notificar dentro del plazo máximo de duración del procedimiento, ¿qué requisitos son suficientes?", choices: [ { id: "a", text: "El envío de un aviso al correo electrónico del interesado informando de la resolución." }, { id: "b", text: "La notificación que contenga, al menos, el texto íntegro de la resolución, así como el intento de notificación debidamente acreditado.", correct: true }, { id: "c", text: "Únicamente el texto íntegro de la resolución, sin necesidad de acreditar intentos fallidos." }, { id: "d", text: "La publicación del acto en el tablón de edictos electrónico." } ] },
+                        { id: "q16-t1", type: "multiple-choice", prompt: "¿Cuándo se entenderá rechazada una notificación practicada por medios electrónicos, si esta es de carácter obligatorio o ha sido elegida expresamente por el interesado?", choices: [ { id: "a", text: "Cuando hayan transcurrido diez días naturales desde la puesta a disposición de la notificación sin que se acceda a su contenido.", correct: true }, { id: "b", text: "Cuando hayan transcurrido veinte días naturales desde la puesta a disposición de la notificación sin que se acceda a su contenido." }, { id: "c", text: "Cuando haya transcurrido un mes (30 días naturales) desde la puesta a disposición." }, { id: "d", text: "Si el interesado no recibe el aviso previo al correo electrónico o dispositivo electrónico." } ] },
+                        { id: "q17-t1", type: "multiple-choice", prompt: "¿Qué efecto tiene la falta de práctica del aviso enviado al dispositivo electrónico o dirección de correo electrónico del interesado, informando de la puesta a disposición de una notificación?", choices: [ { id: "a", text: "Impide que la notificación sea considerada plenamente válida, requiriendo un segundo intento." }, { id: "b", text: "No impedirá que la notificación sea considerada plenamente válida.", correct: true }, { id: "c", text: "Obliga a la Administración a realizar un segundo intento de notificación por vía no electrónica." }, { id: "d", text: "Suspende el plazo de caducidad del procedimiento hasta que se envíe dicho aviso." } ] },
+                        { id: "q18-t1", type: "multiple-choice", prompt: "Cuando la notificación se practica en el domicilio del interesado y este no se halla presente, ¿qué persona puede hacerse cargo de la misma?", choices: [ { id: "a", text: "Cualquier persona mayor de edad que se encuentre en el domicilio." }, { id: "b", text: "Cualquier persona mayor de dieciocho años que se encuentre en el domicilio y haga constar su identidad." }, { id: "c", text: "Cualquier persona mayor de catorce años que se encuentre en el domicilio y haga constar su identidad.", correct: true }, { id: "d", text: "Únicamente un familiar o conviviente del interesado." } ] },
+                        { id: "q19-t1", type: "multiple-choice", prompt: "Si el primer intento de notificación en el domicilio resultó infructuoso, ¿cuántos intentos adicionales se repetirán y con qué requisito de hora si el primer intento fue antes de las 15 horas?", choices: [ { id: "a", text: "Se repetirán por una sola vez en una hora distinta; el segundo intento deberá realizarse después de las 15 horas.", correct: true }, { id: "b", text: "Se repetirán por dos veces en horas distintas, en los cinco días siguientes." }, { id: "c", text: "Se repetirán por una sola vez, sin importar la hora, siempre que haya un margen de tres horas." }, { id: "d", text: "No se repetirán, procediendo directamente a la notificación por anuncio en el BOE." } ] },
+                        { id: "q20-t1", type: "multiple-choice", prompt: "Cuando el interesado fuera notificado por distintos cauces (papel y electrónico), ¿qué fecha se tomará como fecha de notificación?", choices: [ { id: "a", text: "La fecha en que el interesado acceda al contenido en la sede electrónica." }, { id: "b", text: "La fecha de aquélla que se hubiera producido en primer lugar.", correct: true }, { id: "c", text: "La fecha de la notificación en papel, por ser el medio tradicional." }, { id: "d", text: "La fecha que conste en la acreditación incorporada al expediente." } ] },
+                        { id: "q21-t1", type: "multiple-choice", prompt: "¿Dónde se realizará la notificación cuando los interesados en un procedimiento sean desconocidos, se ignore el lugar de la notificación o, intentada esta, no se hubiese podido practicar?", choices: [ { id: "a", text: "Mediante anuncio publicado en el tablón de edictos del Ayuntamiento del último domicilio." }, { id: "b", text: "Mediante un anuncio publicado en el «Boletín Oficial del Estado».", correct: true }, { id: "c", text: "Exclusivamente a través del Punto de Acceso General electrónico." }, { id: "d", text: "Mediante un anuncio en el boletín oficial de la Comunidad Autónoma." } ] },
+                        { id: "q22-t1", type: "fill-in-the-blank", prompt: "Un acto administrativo será objeto de publicación, surtiendo esta los efectos de la notificación, cuando tenga por destinatario a una _______________ de personas o cuando la Administración estime que la notificación efectuada a un solo interesado es insuficiente para garantizar la notificación a todos.", answer: "pluralidad indeterminada" },
+                        { id: "q23-t1", type: "multiple-choice", prompt: "¿Cuál de las siguientes causas determina la nulidad de pleno derecho de un acto administrativo?", choices: [ { id: "a", text: "La infracción de normas de procedimiento, siempre que cause indefensión al interesado." }, { id: "b", text: "Los que sean constitutivos de infracción penal o se dicten como consecuencia de esta.", correct: true }, { id: "c", text: "La desviación de poder en la actuación de la Administración." }, { id: "d", text: "La realización de actuaciones administrativas fuera del tiempo establecido." } ] },
+                        { id: "q24-t1", type: "multiple-choice", prompt: "Los actos administrativos que incurran en cualquier infracción del ordenamiento jurídico, incluida la desviación de poder, serán:", choices: [ { id: "a", text: "Nulos de pleno derecho." }, { id: "b", text: "Anulables.", correct: true }, { id: "c", text: "Viciados y deberán ser convalidados." }, { id: "d", text: "Inexistentes, salvo que se dicten por órgano superior jerárquico." } ] },
+                        { id: "q25-t1", type: "multiple-choice", prompt: "¿Cuándo el defecto de forma de un acto administrativo determinará su anulabilidad?", choices: [ { id: "a", text: "Siempre que se produzca una infracción en el procedimiento." }, { id: "b", text: "Cuando el acto carezca de los requisitos formales indispensables para alcanzar su fin o dé lugar a la indefensión de los interesados.", correct: true }, { id: "c", text: "Únicamente cuando el acto carezca de firma del órgano competente." }, { id: "d", text: "Solo si la forma está expresamente reservada a ley." } ] },
+                        { id: "q26-t1", type: "multiple-choice", prompt: "Si el vicio de un acto administrativo consistiese en incompetencia no determinante de nulidad, ¿quién podrá realizar la convalidación?", choices: [ { id: "a", text: "El órgano que dictó el acto, siempre que subsane el vicio en el plazo de un mes." }, { id: "b", text: "El órgano competente cuando sea superior jerárquico del que dictó el acto viciado.", correct: true }, { id: "c", text: "El Consejo de Estado, mediante dictamen preceptivo." }, { id: "d", text: "El órgano superior jerárquico si el acto es favorable al interesado." } ] },
+                        { id: "q27-t1", type: "fill-in-the-blank", prompt: "La nulidad o anulabilidad en parte del acto administrativo no implicará la de las partes del mismo independientes de aquella, salvo que la parte viciada sea de tal importancia que sin ella el acto administrativo no hubiera sido _______________.", answer: "dictado" },
+                        { id: "q28-t1", type: "multiple-choice", prompt: "¿Cuál es un derecho del interesado en el procedimiento administrativo relacionado con la documentación?", choices: [ { id: "a", text: "A no presentar datos y documentos que ya se encuentren en poder de las Administraciones Públicas o que hayan sido elaborados por éstas.", correct: true }, { id: "b", text: "A obtener copias de todos los documentos, incluso los auxiliares o borradores." }, { id: "c", text: "A exigir que el procedimiento se tramite en formato papel, si no está obligado a la vía electrónica." }, { id: "d", text: "A no presentar ningún documento original bajo ninguna circunstancia." } ] },
+                        { id: "q29-t1", type: "multiple-choice", prompt: "En los procedimientos sancionadores, ¿qué derecho especial tienen los presuntos responsables?", choices: [ { id: "a", text: "A que se les imponga la sanción menos gravosa que proceda." }, { id: "b", text: "A la presunción de no existencia de responsabilidad administrativa mientras no se demuestre lo contrario.", correct: true }, { id: "c", text: "A la exención del pago de la multa si se reconoce la responsabilidad inmediatamente." }, { id: "d", text: "A que la fase instructora y sancionadora sean llevadas por el mismo órgano." } ] },
+                        { id: "q30-t1", type: "multiple-choice", prompt: "Las medidas provisionales adoptadas antes de la iniciación del procedimiento (por urgencia inaplazable) deberán ser confirmadas, modificadas o levantadas en el acuerdo de iniciación. ¿En qué plazo debe efectuarse dicho acuerdo?", choices: [ { id: "a", text: "Dentro de los cinco días siguientes a su adopción." }, { id: "b", text: "Dentro de los quince días siguientes a su adopción.", correct: true }, { id: "c", text: "Dentro de los diez días siguientes a su adopción." }, { id: "d", text: "En el mismo momento en que se acuerde la iniciación del procedimiento." } ] },
+                        { id: "q31-t1", type: "multiple-choice", prompt: "¿Cuál es un requisito esencial para que el órgano administrativo possa acordar la acumulación de procedimientos?", choices: [ { id: "a", text: "Que los interesados estén de acuerdo con la acumulación." }, { id: "b", text: "Que la acumulación se acuerde de oficio, nunca a instancia de parte." }, { id: "c", text: "Que sea el mismo órgano quien deba tramitar y resolver el procedimiento.", correct: true }, { id: "d", text: "Que guarden conexión, aunque no haya identidad sustancial." } ] },
+                        { id: "q32-t1", type: "multiple-choice", prompt: "¿Qué ocurre si un denunciante ha participado en la comisión de una infracción y es el primero en aportar elementos de prueba que permiten iniciar el procedimiento o comprobar la infracción?", choices: [ { id: "a", text: "Se le reducirá la sanción en un 20%." }, { id: "b", text: "Se le eximirá del pago de la multa que le correspondería u otro tipo de sanción no pecuniaria, siempre que repare el perjuicio causado y cese en la participación.", correct: true }, { id: "c", text: "No se le podrá eximir, solo se le reducirá la sanción por colaboración." }, { id: "d", text: "Pierde automáticamente la condición de interesado." } ] },
+                        { id: "q33-t1", type: "multiple-choice", prompt: "En los procedimientos de responsabilidad patrimonial iniciados de oficio, el acuerdo de iniciación se notificará a los particulares presuntamente lesionados, concediéndoles un plazo de:", choices: [ { id: "a", text: "Quince días para que aporten alegaciones." }, { id: "b", text: "Diez días para que aporten alegaciones, documentos o información y propongan pruebas.", correct: true }, { id: "c", text: "Veinte días para proponer pruebas." }, { id: "d", text: "Un mes para subsanar los requisitos de la solicitud." } ] },
+                        { id: "q34-t1", type: "multiple-choice", prompt: "Si una solicitud de iniciación no reúne los requisitos del artículo 66 o 67, se requerirá al interesado para que subsane en un plazo de diez días, con indicación de que, si no lo hiciera, se le tendrá por:", choices: [ { id: "a", text: "Anulado el procedimiento." }, { id: "b", text: "Desistido de su petición, previa resolución.", correct: true }, { id: "c", text: "Decaído en su derecho al trámite, continuando el procedimiento." }, { id: "d", text: "Excluido del procedimiento, abriendo la vía contencioso-administrativa." } ] },
+                        { id: "q35-t1", type: "fill-in-the-blank", prompt: "Se entenderá por _______________ el documento suscrito por un interesado en el que este manifiesta, bajo su responsabilidad, que cumple con los requisitos establecidos en la normativa vigente para obtener el reconocimiento de un derecho o facultad o para su ejercicio.", answer: "declaración responsable" },
+                        { id: "q36-t1", type: "multiple-choice", prompt: "¿Cuál es el plazo general establecido para que los interesados cumplan los trámites que deban ser cumplimentados por ellos, a partir del siguiente al de la notificación del acto correspondiente?", choices: [ { id: "a", text: "Cinco días." }, { id: "b", text: "Diez días.", correct: true }, { id: "c", text: "Quince días." }, { id: "d", text: "Veinte días." } ] },
+                        { id: "q37-t1", type: "multiple-choice", prompt: "¿Qué consecuencia tiene para el interesado el incumplimiento de los trámites que deben ser cumplimentados por él en el plazo establecido?", choices: [ { id: "a", text: "Nulidad de pleno derecho del procedimiento." }, { id: "b", text: "Declaración de caducidad del procedimiento." }, { id: "c", text: "Declaración de decaimiento en su derecho al trámite correspondiente.", correct: true }, { id: "d", text: "Se paraliza el procedimiento hasta que se realice la actuación." } ] },
+                        { id: "q38-t1", type: "multiple-choice", prompt: "¿Cuál es la regla general sobre la suspensión de la tramitación del procedimiento cuando se suscitan cuestiones incidentales (incluida la nulidad de actuaciones)?", choices: [ { id: "a", text: "Las cuestiones incidentales suspenden siempre la tramitación." }, { id: "b", text: "Las cuestiones incidentales no suspenderán la tramitación, salvo la recusación.", correct: true }, { id: "c", text: "Solo la nulidad de actuaciones suspenderá la tramitación." }, { id: "d", text: "La suspensión es discrecional del órgano instructor." } ] },
+                        { id: "q39-t1", type: "multiple-choice", prompt: "¿Hasta qué momento del procedimiento pueden los interesados aducir alegaciones y aportar documentos u otros elementos de juicio?", choices: [ { id: "a", text: "Hasta la emisión de la propuesta de resolución." }, { id: "b", text: "En cualquier momento del procedimiento anterior al trámite de audiencia.", correct: true }, { id: "c", text: "Solamente durante el período de prueba." }, { id: "d", text: "Exclusivamente junto con la solicitud de iniciación." } ] },
+                        { id: "q40-t1", type: "multiple-choice", prompt: "Cuando la Administración no tenga por ciertos los hechos alegados por los interesados o la naturaleza del procedimiento lo exija, el instructor acordará la apertura de un período de prueba ordinario por un plazo:", choices: [ { id: "a", text: "No superior a diez días ni inferior a cinco." }, { id: "b", text: "No superior a veinte días ni inferior a diez." }, { id: "c", text: "No superior a treinta días ni inferior a diez.", correct: true }, { id: "d", text: "No superior a cuarenta y cinco días." } ] },
+                        { id: "q41-t1", type: "multiple-choice", prompt: "¿Cuál es la condición necesaria para que el instructor del procedimiento possa rechazar las pruebas propuestas por los interesados?", choices: [ { id: "a", text: "Que la propuesta de prueba no haya sido motivada." }, { id: "b", text: "Que sean manifiestamente improcedentes o innecesarias, mediante resolución motivada.", correct: true }, { id: "c", text: "Que el interesado no haya anticipado los gastos que implican." }, { id: "d", text: "Que ya exista prueba documental suficiente en el expediente." } ] },
+                        { id: "q42-t1", type: "multiple-choice", prompt: "Salvo disposición expresa en contrario, la regla general para los informes solicitados a efectos de resolución del procedimiento es que son:", choices: [ { id: "a", text: "Preceptivos y vinculantes." }, { id: "b", text: "Facultativos y vinculantes." }, { id: "c", text: "Preceptivos y no vinculantes." }, { id: "d", text: "Facultativos y no vinculantes.", correct: true } ] },
+                        { id: "q43-t1", type: "multiple-choice", prompt: "Respecto al trámite de audiencia, ¿cuál es el plazo mínimo y máximo que se debe conceder a los interesados para alegar y presentar documentos y justificaciones pertinentes?", choices: [ { id: "a", text: "No inferior a cinco días ni superior a diez." }, { id: "b", text: "No inferior a diez días ni superior a quince.", correct: true }, { id: "c", text: "Un plazo único y fijo de diez días naturales." }, { id: "d", text: "Veinte días, coincidiendo con la información pública." } ] },
+                        { id: "q44-t1", type: "fill-in-the-blank", prompt: "El plazo para formular alegaciones en un periodo de información pública, señalado en el anuncio publicado en el Diario oficial correspondiente, en ningún caso podrá ser inferior a _______________ días.", answer: "veinte" },
+                        { id: "q45-t1", type: "multiple-choice", prompt: "En un procedimiento sancionador, si el infractor reconoce su responsabilidad, la sanción tendrá una reducción mínima de:", choices: [ { id: "a", text: "Al menos, el 10% sobre el importe propuesto." }, { id: "b", text: "Al menos, el 20% sobre el importe de la sanción propuesta, siendo acumulable con otras reducciones.", correct: true }, { id: "c", text: "El 30% siempre que el pago sea inmediato." }, { id: "d", text: "El 50% si no se interpone recurso en vía administrativa." } ] },
+                        { id: "q46-t1", type: "multiple-choice", prompt: "¿Cuál es el plazo máximo para practicar las actuaciones complementarias indispensablemente necesarias para resolver el procedimiento, una vez acordadas?", choices: [ { id: "a", text: "Siete días." }, { id: "b", text: "Diez días." }, { id: "c", text: "Quince días.", correct: true }, { id: "d", text: "Un mes." } ] },
+                        { id: "q47-t1", type: "multiple-choice", prompt: "En los procedimientos iniciados a solicitud del interesado, si se produce su paralización por causa imputable al mismo, ¿cuánto tiempo debe transcurrir tras la advertencia de la Administración para que se produzca la caducidad del procedimiento y se acuerde el archivo?", choices: [ { id: "a", text: "Quince días." }, { id: "b", text: "Un mes." }, { id: "c", text: "Tres meses.", correct: true }, { id: "d", text: "Seis meses." } ] },
+                        { id: "q48-t1", type: "multiple-choice", prompt: "Si la Administración acuerda de oficio la tramitación simplificada de un procedimiento, ¿qué opción tiene el interesado para evitarla?", choices: [ { id: "a", text: "Ninguna, la decisión es discrecional de la Administración." }, { id: "b", text: "Manifestar su oposición expresa, lo que obligará a la Administración a seguir la tramitación ordinaria.", correct: true }, { id: "c", text: "Interponer recurso de alzada o reposición contra el acuerdo de tramitación simplificada." }, { id: "d", text: "Solicitar la acumulación a otro procedimiento que se tramite de forma ordinaria." } ] },
+                        { id: "q49-t1", type: "multiple-choice", prompt: "¿Cuál de los siguientes no es un medio de ejecución forzosa por parte de las Administraciones Públicas?", choices: [ { id: "a", text: "Apremio sobre el patrimonio." }, { id: "b", text: "Retención de fondos públicos.", correct: true }, { id: "c", text: "Multa coercitiva." }, { id: "d", text: "Compulsión sobre las personas." } ] },
+                        { id: "q50-t1", type: "fill-in-the-blank", prompt: "Salvo que reste menos para su tramitación ordinaria, los procedimientos administrativos tramitados de manera simplificada deberán ser resueltos en _______________ días, contados desde el siguiente al que se notifique al interesado el acuerdo de tramitación simplificada.", answer: "treinta" }
+                    ],
+                    // ==================================================================
+                    // INCRUSTAR URL DE MAPA MENTAL PARA TEMA 1 AQUÍ
+                    // ==================================================================
+                    mindmapUrl: "https://atlas.mindmup.com/skemia/procedimiento_administrativo_comu_n_mapa/index.html",
+                },
+                { 
+                    id: 't2', 
+                    name: '2. Vacio', 
+                    flashcards: [], 
+                    quizzes: [], 
+                    // INCRUSTAR URL DE MAPA MENTAL PARA TEMA 2 AQUÍ (o dejar en null)
+                    mindmapUrl: null, 
+                },
+                { id: 't3', name: '3. Vacio', flashcards: [], quizzes: [], mindmapUrl: null },
+                { id: 't4', name: '4. Vacio', flashcards: [], quizzes: [], mindmapUrl: null },
+                { id: 't5', name: '5. Vacio', flashcards: [], quizzes: [], mindmapUrl: null },
+                { id: 't6', name: '6. Vacio', flashcards: [], quizzes: [], mindmapUrl: null },
+                { id: "t7", name: "7. Vacio", flashcards: [], quizzes: [], mindmapUrl: null },
+                { id: 't8', name: '8. Vacio', flashcards: [], quizzes: [], mindmapUrl: null },
+                { id: 't9', name: '9. Vacio', flashcards: [], quizzes: [], mindmapUrl: null },
+                { id: 't10', name: '10. Vacio', flashcards: [], quizzes: [], mindmapUrl: null }
+            ]
+        };
+
+        let AppState = {
+            currentTemarioIndex: 0,
+            flashcards: {
+                selectedTemarioIndices: [],
+                combinedFlashcards: [],
+                currentIndex: 0,
+                isFlipped: false,
+                isShuffled: false,
+                originalOrder: [],
+                shuffledOrder: [],
+                difficulty: {}
+            },
+            quizzes: {
+                selectedTemarioIndices: [],
+                combinedQuizzes: [],
+                currentIndex: 0,
+                selectedAnswer: null,
+                isAnswered: false,
+                score: 0,
+                userAnswers: [],
+                isReviewMode: false,
+            }
+        };
+
+        const pages = document.querySelectorAll('.page-content');
+        const navLinks = document.querySelectorAll('nav a');
+        const temarioSelectors = document.querySelectorAll('.temario-selector');
+        document.getElementById('footer-year').textContent = new Date().getFullYear();
+
+        function navigateTo(pageId) {
+            pages.forEach(page => page.classList.toggle('active', page.id === `page-${pageId}`));
+            const activePage = document.querySelector('.page-content.active');
+            if (activePage) {
+                const pageLogic = activePage.id.replace('page-', '');
+                if (pageLogic === 'flashcards') setupFlashcardsPage();
+                if (pageLogic === 'quizzes') setupQuizzesPage();
+                if (pageLogic === 'mindmap') renderMindmapPage();
+                if (pageLogic === 'audios') renderDownloadPage('audios');
+                if (pageLogic === 'report') renderDownloadPage('report');
+                if (pageLogic === 'fuentes') renderDownloadPage('fuentes');
+            }
+        }
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                navigateTo(e.currentTarget.dataset.page);
+            });
+        });
+        
+        function populateTemarioSelectors() {
+            temarioSelectors.forEach(selector => {
+                selector.innerHTML = '';
+                MOCK_DATA.temarios.forEach((temario, index) => {
+                    selector.innerHTML += `<option value="${index}">${temario.name}</option>`;
+                });
+                selector.value = AppState.currentTemarioIndex;
+            });
+        }
+
+        function handleTemarioChange(event) {
+            const newIndex = parseInt(event.target.value, 10);
+            AppState.currentTemarioIndex = newIndex;
+            temarioSelectors.forEach(s => s.value = newIndex);
+            const activePageId = document.querySelector('.page-content.active').id.replace('page-', '');
+            navigateTo(activePageId);
+        }
+        
+        document.querySelectorAll('.temario-selector').forEach(selector => 
+            selector.addEventListener('change', handleTemarioChange)
+        );
+        
+        document.getElementById('start-studying-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            navigateTo('flashcards');
+        });
+
+        // --- MÓDULO DE FLASHCARDS ---
+        const fcSelectionArea = document.getElementById('flashcard-selection-area');
+        const fcStudyArea = document.getElementById('flashcard-study-area');
+        const startFlashcardsBtn = document.getElementById('start-flashcards-btn');
+        const fcContainer = document.getElementById('flashcard-container');
+        const fcPrevBtn = document.getElementById('flashcard-prev');
+        const fcNextBtn = document.getElementById('flashcard-next');
+        const fcCounter = document.getElementById('flashcard-counter');
+        const fcShuffleBtn = document.getElementById('flashcard-shuffle');
+        const fcDifficultyControls = document.getElementById('flashcard-difficulty-controls');
+        const changeTopicsBtn = document.getElementById('change-topics-btn');
+
+        function setupFlashcardsPage() {
+            setupMultiSelect('flashcards');
+            fcSelectionArea.classList.remove('hidden');
+            fcStudyArea.classList.add('hidden');
+        }
+
+        startFlashcardsBtn.addEventListener('click', () => {
+            fcSelectionArea.classList.add('hidden');
+            fcStudyArea.classList.remove('hidden', 'flex');
+            fcStudyArea.classList.add('flex');
+            
+            resetFlashcardState();
+            
+            let combined = [];
+            AppState.flashcards.selectedTemarioIndices.forEach(index => {
+                combined.push(...MOCK_DATA.temarios[index].flashcards);
+            });
+            
+            if (fcShuffleBtn.classList.contains('active')) {
+                for (let i = combined.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [combined[i], combined[j]] = [combined[j], combined[i]];
+                }
+            }
+            
+            AppState.flashcards.combinedFlashcards = combined;
+            renderFlashcard();
+        });
+
+        changeTopicsBtn.addEventListener('click', () => setupFlashcardsPage());
+
+        function resetFlashcardState() {
+             AppState.flashcards = {
+                ...AppState.flashcards,
+                combinedFlashcards: [],
+                currentIndex: 0,
+                isFlipped: false,
+                isShuffled: false,
+                originalOrder: [],
+                shuffledOrder: [],
+                difficulty: {}
+            };
+            fcShuffleBtn.classList.remove('active');
+        }
+
+        function renderFlashcard() {
+            const state = AppState.flashcards;
+            const currentData = state.combinedFlashcards;
+            
+            if (currentData.length === 0) {
+                 fcContainer.innerHTML = `<div class="w-full h-80 flex items-center justify-center"><p class="text-text-secondary">No hay flashcards en los temarios seleccionados.</p></div>`;
+                 fcCounter.textContent = '0 / 0';
+                 fcDifficultyControls.style.display = 'none';
+                 fcPrevBtn.disabled = true;
+                 fcNextBtn.disabled = true;
+                 return;
+            } else {
+                 fcDifficultyControls.style.display = 'block';
+                 fcPrevBtn.disabled = false;
+                 fcNextBtn.disabled = false;
+            }
+
+            if (state.originalOrder.length === 0) {
+                 state.originalOrder = currentData.map((_, index) => index);
+            }
+            const order = state.isShuffled ? state.shuffledOrder : state.originalOrder;
+            const card = currentData[order[state.currentIndex]];
+            
+            const difficulty = state.difficulty[card.id];
+            let borderColor = 'border-neutral-border';
+            if (difficulty === 'easy') borderColor = 'border-green-400';
+            else if (difficulty === 'medium') borderColor = 'border-yellow-400';
+            else if (difficulty === 'hard') borderColor = 'border-red-400';
+
+            fcContainer.innerHTML = `
+                <div id="card-flipper" class="w-full h-80 rounded-xl shadow-xl cursor-pointer perspective-1000">
+                    <div class="relative w-full h-full transition-transform duration-700 transform-style-3d ${state.isFlipped ? 'rotate-y-180' : ''}">
+                        <div class="absolute w-full h-full backface-hidden flex flex-col items-center justify-center p-6 bg-white border-4 ${borderColor} rounded-xl">
+                            <p class="text-2xl font-semibold text-text-primary text-center">${card.front}</p>
+                            <div class="absolute bottom-4 right-4 text-gray-300"><i data-lucide="rotate-cw" class="w-5 h-5"></i></div>
+                        </div>
+                        <div class="absolute w-full h-full backface-hidden rotate-y-180 flex flex-col items-center justify-center p-6 bg-neutral-bg border-4 ${borderColor} rounded-xl">
+                            <p class="text-lg text-text-secondary text-center">${card.back}</p>
+                            ${card.audioUrl ? `<audio controls src="${card.audioUrl}" class="mt-4" onclick="event.stopPropagation()"></audio>` : ''}
+                        </div>
+                    </div>
+                </div>`;
+            fcCounter.textContent = `${state.currentIndex + 1} / ${currentData.length}`;
+            document.getElementById('card-flipper').addEventListener('click', () => {
+                state.isFlipped = !state.isFlipped;
+                renderFlashcard();
+            });
+            lucide.createIcons();
+        }
+        
+        fcPrevBtn.addEventListener('click', () => {
+            const state = AppState.flashcards;
+            const dataLength = state.combinedFlashcards.length;
+            if (dataLength === 0) return;
+            state.isFlipped = false;
+            state.currentIndex = (state.currentIndex - 1 + dataLength) % dataLength;
+            renderFlashcard();
+        });
+        
+        fcNextBtn.addEventListener('click', () => {
+            const state = AppState.flashcards;
+            const dataLength = state.combinedFlashcards.length;
+            if (dataLength === 0) return;
+            state.isFlipped = false;
+            state.currentIndex = (state.currentIndex + 1) % dataLength;
+            renderFlashcard();
+        });
+        
+        fcShuffleBtn.addEventListener('click', () => {
+            fcShuffleBtn.classList.toggle('active');
+        });
+
+        fcDifficultyControls.addEventListener('click', (e) => {
+            if (e.target.matches('button')) {
+                const difficulty = e.target.dataset.difficulty;
+                const state = AppState.flashcards;
+                const order = state.isShuffled ? state.shuffledOrder : state.originalOrder;
+                const card = state.combinedFlashcards[order[state.currentIndex]];
+                if (!card) return;
+                
+                state.difficulty[card.id] = difficulty;
+                renderFlashcard();
+                setTimeout(() => fcNextBtn.click(), 200);
+            }
+        });
+
+        // --- MÓDULO DE QUIZZES ---
+        const quizContainer = document.getElementById('quiz-container');
+        const quizSelectionArea = document.getElementById('quiz-selection-area');
+        const quizStudyArea = document.getElementById('quiz-study-area');
+        const startQuizBtn = document.getElementById('start-quiz-btn');
+        const changeQuizTopicsBtn = document.getElementById('change-quiz-topics-btn');
+        const quizShuffleSelectionBtn = document.getElementById('quiz-shuffle-selection');
+        const quizShuffleStudyBtn = document.getElementById('quiz-shuffle-study');
+
+        function setupQuizzesPage() {
+            setupMultiSelect('quizzes');
+            quizSelectionArea.classList.remove('hidden');
+            quizStudyArea.classList.add('hidden');
+            quizShuffleSelectionBtn.classList.remove('active');
+        }
+
+        quizShuffleSelectionBtn.addEventListener('click', () => {
+            quizShuffleSelectionBtn.classList.toggle('active');
+        });
+
+        startQuizBtn.addEventListener('click', () => {
+            quizSelectionArea.classList.add('hidden');
+            quizStudyArea.classList.remove('hidden');
+            quizStudyArea.classList.add('flex');
+            
+            resetQuizState();
+            
+            let combined = [];
+            AppState.quizzes.selectedTemarioIndices.forEach(index => {
+                if(MOCK_DATA.temarios[index].quizzes){
+                    combined.push(...MOCK_DATA.temarios[index].quizzes);
+                }
+            });
+            
+            if (quizShuffleSelectionBtn.classList.contains('active')) {
+                for (let i = combined.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [combined[i], combined[j]] = [combined[j], combined[i]];
+                }
+            }
+
+            AppState.quizzes.combinedQuizzes = combined;
+            renderQuiz();
+        });
+
+        quizShuffleStudyBtn.addEventListener('click', () => {
+            const state = AppState.quizzes;
+            if (state.combinedQuizzes.length === 0) return;
+
+            for (let i = state.combinedQuizzes.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [state.combinedQuizzes[i], state.combinedQuizzes[j]] = [state.combinedQuizzes[j], state.combinedQuizzes[i]];
+            }
+            
+            resetQuizState();
+            AppState.quizzes.combinedQuizzes = state.combinedQuizzes; 
+            renderQuiz();
+        });
+
+
+        changeQuizTopicsBtn.addEventListener('click', () => setupQuizzesPage());
+
+        function resetQuizState() {
+             AppState.quizzes = {
+                ...AppState.quizzes,
+                combinedQuizzes: [],
+                currentIndex: 0,
+                selectedAnswer: null,
+                isAnswered: false,
+                score: 0,
+                userAnswers: [],
+                isReviewMode: false,
+            };
+        }
+
+        function renderQuiz() {
+            const state = AppState.quizzes;
+            const data = state.combinedQuizzes;
+            
+            if (data.length === 0) {
+                 quizContainer.innerHTML = `<p class="text-text-secondary text-center">No hay quizzes en los temarios seleccionados.</p>`;
+                 return;
+            }
+
+            if (state.isReviewMode) {
+                renderQuizReview();
+                return;
+            }
+
+            if (state.currentIndex >= data.length) {
+                renderQuizResults(data);
+                return;
+            }
+
+            const question = data[state.currentIndex];
+            
+            let feedbackBoxHtml = '';
+            if (state.isAnswered) {
+                const userAnswer = state.userAnswers.find(ua => ua.questionId === question.id);
+                let correctAnsHtml = '';
+                
+                if (userAnswer && !userAnswer.isCorrect && question.type === 'fill-in-the-blank') {
+                    correctAnsHtml = `<p class="text-sm text-green-700">Respuesta correcta: <strong class="font-bold">${question.answer}</strong></p>`;
+                }
+
+                if (question.explanation || correctAnsHtml) {
+                    feedbackBoxHtml = `
+                        <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
+                            ${correctAnsHtml}
+                            ${question.explanation ? `<p class="mt-2">${question.explanation}</p>` : ''}
+                        </div>
+                    `;
+                }
+            }
+
+
+            quizContainer.innerHTML = `
+                <div class="progress-bar-container mb-4">
+                    <div class="progress-bar" style="width: ${((state.currentIndex) / data.length) * 100}%"></div>
+                </div>
+                <p class="text-right text-sm text-text-secondary mb-8">Pregunta ${state.currentIndex + 1} de ${data.length}</p>
+                <div class="bg-neutral-card p-8 rounded-lg border">
+                    <h2 class="text-2xl font-semibold mb-6">${question.prompt}</h2>
+                    <div class="space-y-3">${renderQuestionInput(question, state)}</div>
+                    ${feedbackBoxHtml}
+                    <div class="mt-6 text-right">
+                        ${state.isAnswered 
+                            ? `<button id="quiz-next" class="px-6 py-2 bg-brand-accent text-white rounded-md">Siguiente</button>`
+                            : `<button id="quiz-check" class="px-6 py-2 bg-brand-accent text-white rounded-md disabled:bg-gray-300" ${!state.selectedAnswer ? 'disabled' : ''}>Comprobar</button>`
+                        }
+                    </div>
+                </div>`;
+            attachQuizListeners(question, state);
+        }
+
+        function renderQuestionInput(question, state) {
+            if (question.type === 'fill-in-the-blank') {
+                let inputClass = 'w-full p-3 border border-neutral-border rounded-md';
+                let iconHtml = '';
+                let value = state.selectedAnswer || '';
+                
+                if (state.isAnswered) {
+                    const userAnswer = state.userAnswers.find(ua => ua.questionId === question.id);
+                    if (userAnswer) {
+                        value = userAnswer.selected;
+                        if (userAnswer.isCorrect) {
+                            inputClass += ' bg-green-50 border-green-300 text-green-800';
+                            iconHtml = '<div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none"><i data-lucide="check-circle" class="h-5 w-5 text-feedback-correct"></i></div>';
+                        } else {
+                            inputClass += ' bg-red-50 border-red-300 text-red-800';
+                            iconHtml = '<div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none"><i data-lucide="x-circle" class="h-5 w-5 text-feedback-incorrect"></i></div>';
+                        }
+                    }
+                }
+
+                return `
+                    <div class="relative">
+                        <input type="text" id="fill-in-blank-input" class="${inputClass}" placeholder="Escribe tu respuesta aquí..." value="${value}" ${state.isAnswered ? 'disabled' : ''}>
+                        ${iconHtml}
+                    </div>
+                `;
+            }
+
+            const getChoiceClass = (choice) => {
+                let base = 'w-full text-left p-4 border rounded-md transition-colors flex items-center justify-between';
+                if (!state.isAnswered) return `${base} ${state.selectedAnswer === choice.id ? 'bg-indigo-100 border-indigo-300' : 'bg-neutral-card hover:bg-neutral-bg'}`;
+                if (choice.correct) return `${base} bg-green-50 border-green-300 text-green-800 font-bold`;
+                if (state.selectedAnswer === choice.id && !choice.correct) return `${base} bg-red-50 border-red-300`;
+                return `${base} bg-neutral-card opacity-60`;
+            };
+
+            return question.choices.map(choice => `
+                <button data-choice-id="${choice.id}" class="quiz-choice ${getChoiceClass(choice)}">
+                    <span><span class="font-bold mr-2 uppercase">${choice.id})</span> ${choice.text}</span>
+                    ${state.isAnswered && choice.correct ? '<span class="text-feedback-correct"><i data-lucide="check-circle" class="w-5 h-5"></i></span>' : ''}
+                    ${state.isAnswered && state.selectedAnswer === choice.id && !choice.correct ? '<span class="text-feedback-incorrect"><i data-lucide="x-circle" class="w-5 h-5"></i></span>' : ''}
+                </button>`).join('');
+        }
+
+        function attachQuizListeners(question, state) {
+             lucide.createIcons();
+             if (state.isAnswered) {
+                document.getElementById('quiz-next').addEventListener('click', () => {
+                    state.currentIndex++;
+                    state.isAnswered = false;
+                    state.selectedAnswer = null;
+                    renderQuiz();
+                });
+            } else {
+                document.getElementById('quiz-check').addEventListener('click', () => checkAnswer(question, state));
+                if (question.type === 'fill-in-the-blank') {
+                    const input = document.getElementById('fill-in-blank-input');
+                    input.addEventListener('input', () => {
+                        state.selectedAnswer = input.value;
+                        document.getElementById('quiz-check').disabled = !input.value.trim();
+                    });
+                } else {
+                    document.querySelectorAll('.quiz-choice').forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            if (state.isAnswered) return;
+                            state.selectedAnswer = btn.dataset.choiceId;
+                            renderQuiz(); 
+                        });
+                    });
+                }
+            }
+        }
+
+        function checkAnswer(question, state) {
+            if (!state.selectedAnswer) return;
+            let isCorrect = (question.type === 'fill-in-the-blank')
+                ? state.selectedAnswer.trim().toLowerCase() === question.answer.toLowerCase()
+                : question.choices.find(c => c.id === state.selectedAnswer)?.correct;
+
+            if (isCorrect) state.score++;
+            state.userAnswers.push({ questionId: question.id, selected: state.selectedAnswer, isCorrect: isCorrect });
+            state.isAnswered = true;
+            renderQuiz();
+        }
+
+        function renderQuizResults(data) {
+            const state = AppState.quizzes;
+            const percentage = (data.length > 0) ? (state.score / data.length) * 100 : 0;
+            const circumference = 2 * Math.PI * 54;
+
+            quizContainer.innerHTML = `
+                <div class="bg-neutral-card p-8 rounded-lg border text-center">
+                    <h2 class="text-2xl font-bold mb-4">¡Quiz Terminado!</h2>
+                    <div class="my-8 flex justify-center">
+                        <svg class="w-32 h-32" viewBox="0 0 120 120">
+                            <circle class="text-gray-200" stroke-width="12" stroke="currentColor" fill="transparent" r="54" cx="60" cy="60"/>
+                            <circle class="text-brand-accent" stroke-width="12" stroke-dasharray="${circumference}" stroke-dashoffset="${circumference - (percentage / 100) * circumference}" stroke-linecap="round" stroke="currentColor" fill="transparent" r="54" cx="60" cy="60" style="transition: stroke-dashoffset 0.8s ease-out;"/>
+                            <text x="60" y="65" font-family="sans-serif" font-size="24" text-anchor="middle" fill="#1a1a1a">${Math.round(percentage)}%</text>
+                        </svg>
+                    </div>
+                    <p class="text-lg">Tu puntuación final es: <strong>${state.score} de ${data.length}</strong></p>
+                    <div class="mt-8 flex justify-center space-x-4">
+                       <button id="quiz-restart" class="px-6 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Reiniciar</button>
+                       <button id="quiz-review" class="px-6 py-2 bg-brand-accent text-white rounded-md hover:bg-opacity-90">Revisar Respuestas</button>
+                    </div>
+                </div>`;
+            document.getElementById('quiz-restart').addEventListener('click', () => {
+                resetQuizState();
+                renderQuiz();
+            });
+            document.getElementById('quiz-review').addEventListener('click', () => {
+                state.isReviewMode = true;
+                renderQuizReview();
+            });
+        }
+        
+        function renderQuizReview() {
+            const state = AppState.quizzes;
+            const data = state.combinedQuizzes;
+            let reviewHtml = `<div class="bg-neutral-card p-8 rounded-lg border"><h2 class="text-2xl font-bold mb-6 text-center">Revisión del Quiz</h2><div class="space-y-6">`;
+
+            data.forEach(question => {
+                const userAnswer = state.userAnswers.find(ua => ua.questionId === question.id);
+                if (userAnswer) {
+                    let resultIndicator = userAnswer.isCorrect ? `<span class="text-feedback-correct font-bold">Correcto</span>` : `<span class="text-feedback-incorrect font-bold">Incorrecto</span>`;
+                    reviewHtml += `
+                        <div class="p-4 border rounded-md">
+                            <p class="font-semibold">${question.prompt}</p>
+                            <p class="text-sm mt-2">Tu respuesta: <span class="font-mono p-1 bg-gray-100 rounded text-sm">${userAnswer.selected}</span> - ${resultIndicator}</p>
+                            ${question.explanation ? `<p class="text-sm mt-2 text-text-secondary">${question.explanation}</p>` : ''}
+                        </div>`;
+                }
+            });
+
+            reviewHtml += `</div><div class="mt-8 text-center"><button id="quiz-back-to-results" class="px-6 py-2 bg-brand-accent text-white rounded-md">Volver a Resultados</button></div></div>`;
+            quizContainer.innerHTML = reviewHtml;
+            document.getElementById('quiz-back-to-results').addEventListener('click', () => {
+                state.isReviewMode = false;
+                renderQuizResults(data);
+            });
+        }
+        
+        // --- LÓGICA GENÉRICA Y MULTI-SELECT ---
+        function setupMultiSelect(type) {
+            const state = AppState[type];
+            const dropdown = document.getElementById(`${type === 'flashcards' ? '' : 'quiz-'}multi-select-dropdown`);
+            
+            dropdown.innerHTML = '';
+            MOCK_DATA.temarios.forEach((temario, index) => {
+                const isChecked = state.selectedTemarioIndices.includes(index);
+                dropdown.innerHTML += `
+                    <label class="flex items-center p-2 hover:bg-gray-100 cursor-pointer">
+                        <input type="checkbox" data-index="${index}" class="mr-2" ${isChecked ? 'checked' : ''}>
+                        <span>${temario.name}</span>
+                    </label>`;
+            });
+            updateMultiSelectButtonText(type);
+        }
+
+        function updateMultiSelectButtonText(type) {
+            const state = AppState[type];
+            const buttonText = document.getElementById(`${type === 'flashcards' ? '' : 'quiz-'}multi-select-text`);
+            const startBtn = document.getElementById(`start-${type === 'flashcards' ? 'flashcards' : 'quiz'}-btn`);
+            const selectedCount = state.selectedTemarioIndices.length;
+
+            if (selectedCount === 0) {
+                buttonText.textContent = 'Selecciona temarios...';
+                buttonText.classList.add('text-text-secondary');
+                startBtn.disabled = true;
+            } else if (selectedCount === 1) {
+                const selectedIndex = state.selectedTemarioIndices[0];
+                buttonText.textContent = MOCK_DATA.temarios[selectedIndex].name;
+                buttonText.classList.remove('text-text-secondary');
+                startBtn.disabled = false;
+            } else {
+                buttonText.textContent = `${selectedCount} temarios seleccionados`;
+                buttonText.classList.remove('text-text-secondary');
+                startBtn.disabled = false;
+            }
+        }
+        
+        ['flashcards', 'quizzes'].forEach(type => {
+            const prefix = type === 'flashcards' ? '' : 'quiz-';
+            document.getElementById(`${prefix}multi-select-button`).addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.getElementById(`${prefix}multi-select-dropdown`).classList.toggle('hidden');
+            });
+            document.getElementById(`${prefix}multi-select-dropdown`).addEventListener('change', (e) => {
+                if (e.target.type === 'checkbox') {
+                    const index = parseInt(e.target.dataset.index, 10);
+                    const state = AppState[type];
+                    if (e.target.checked) {
+                        state.selectedTemarioIndices.push(index);
+                    } else {
+                        state.selectedTemarioIndices = state.selectedTemarioIndices.filter(i => i !== index);
+                    }
+                    updateMultiSelectButtonText(type);
+                }
+            });
+        });
+
+        document.addEventListener('click', () => {
+             document.querySelectorAll('.multi-select-dropdown').forEach(d => d.classList.add('hidden'));
+        });
+
+        // --- MÓDULOS DE URL GENÉRICAS E INFORMES ---
+        function renderMindmapPage() {
+            const container = document.getElementById('mindmap-url-container');
+            const temario = MOCK_DATA.temarios[AppState.currentTemarioIndex];
+            const url = temario.mindmapUrl;
+
+            if (url) {
+                container.innerHTML = `
+                    <div class="bg-neutral-card p-8 border border-neutral-border rounded-lg mt-8 text-center">
+                        <a href="${url}" target="_blank" rel="noopener noreferrer" class="inline-block px-8 py-3 bg-brand-accent text-white font-semibold rounded-lg shadow-md hover:bg-opacity-90 transition-transform transform hover:scale-105">
+                            Abrir Mapa Mental
+                        </a>
+                        <p class="text-text-secondary mt-4 text-sm max-w-md mx-auto">
+                            Nuestros mapas mentales son interactivos. Haz doble clic sobre cualquier idea o nodo para expandir o contraer sus ramificaciones y explorar el contenido a tu propio ritmo.
+                        </p>
+                    </div>`;
+            } else {
+                container.innerHTML = `
+                    <div class="bg-neutral-card p-8 border border-neutral-border rounded-lg mt-8 text-center">
+                         <p class="text-text-secondary">No hay un mapa mental asociado a este temario.</p>
+                    </div>`;
+            }
+        }
+
+        function renderDownloadPage(pageType) {
+            const config = {
+                audios: {
+                    containerId: 'audios-download-container',
+                    urlKey: 'allAudiosUrl',
+                    description: 'Haz clic en el botón para descargar un único archivo ZIP con los audios de todos los temarios disponibles.',
+                    buttonText: 'Descargar Audios'
+                },
+                report: {
+                    containerId: 'report-download-container',
+                    urlKey: 'allReportsUrl',
+                    description: 'Al pulsar el botón, descargarás un archivo ZIP que contiene las guías de estudio para cada tema, todas redactadas en formato de informe.',
+                    buttonText: 'Descargar Informes'
+                },
+                fuentes: {
+                    containerId: 'fuentes-download-container',
+                    urlKey: 'allFuentesUrl',
+                    description: 'Haz clic en el botón para descargar un único archivo ZIP con todas las fuentes y materiales de referencia.',
+                    buttonText: 'Descargar Fuentes'
+                }
+            };
+
+            const pageConfig = config[pageType];
+            if (!pageConfig) return;
+
+            const container = document.getElementById(pageConfig.containerId);
+            const url = MOCK_DATA[pageConfig.urlKey];
+
+            if (url && container) {
+                container.innerHTML = `
+                    <div class="bg-neutral-card p-8 border border-neutral-border rounded-lg mt-8 text-center">
+                        <p class="text-text-secondary mb-6 max-w-md mx-auto">
+                            ${pageConfig.description}
+                        </p>
+                        <a href="${url}" target="_blank" rel="noopener noreferrer" class="inline-block px-8 py-3 bg-brand-accent text-white font-semibold rounded-lg shadow-md hover:bg-opacity-90 transition-transform transform hover:scale-105">
+                            ${pageConfig.buttonText}
+                        </a>
+                    </div>`;
+            } else if (container) {
+                container.innerHTML = `
+                    <div class="bg-neutral-card p-8 border border-neutral-border rounded-lg mt-8 text-center">
+                         <p class="text-text-secondary">Actualmente no hay archivos disponibles para descargar.</p>
+                    </div>`;
+            }
+        }
+        
+        // --- INICIALIZACIÓN ---
+        populateTemarioSelectors();
+        navigateTo('home');
+        lucide.createIcons();
+    });
+    </script>
+</body>
+</html>
 
