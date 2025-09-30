@@ -1,4 +1,5 @@
 Skemia - Plataforma Educativa Integrada 📚
+
 Skemia es una aplicación web de estudio todo en uno, diseñada para ayudar a los estudiantes a organizar su aprendizaje de manera eficaz. La plataforma centraliza varias herramientas en una interfaz limpia y sin distracciones.
 
 ✨ Características Principales
